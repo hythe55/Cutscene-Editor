@@ -1,17 +1,20 @@
 local RunService = game:GetService("RunService")
-local Selection = game:GetService("Selection")
 
 local UI = require(script.Parent.UI)
 local Context = require(script.Parent.Inspector.Context)
 local Collect = require(script.Collect)
+local Creator = require(script.Creator)
+local Upload = require(script.Upload)
 
 local Export = {}
 
 Export.Collect = Collect
+Export.Creator = Creator
+Export.Upload = Upload
 Export.Hooks = nil
 Export.Running = false
 
-local REMINDER = "Upload to the group that owns this experience: pick that group as the Creator in Roblox's upload window. Animations owned by your own account will not play in a group game."
+local BETA = "Direct uploads from plugins need a Studio beta. Open File > Beta Features, turn on \"CreateAssetAsync Lua API\", restart Studio, then press Export again.\n\nYou can also upload these by hand now: Roblox's upload window opens for each one, and you paste the id it shows."
 
 local function raise(frame, z)
 	for _, descendant in frame:GetDescendants() do
@@ -39,61 +42,80 @@ local function pausePreview(app)
 	end
 end
 
-function Export.Scope(items)
-	local targets, never = Collect.Count(items)
-	if #items == 0 then
-		return "Every animation in scope matches its last export."
-	end
-	local changed = #items - never
-	local parts = {}
-	if never > 0 then
-		table.insert(parts, `{never} never exported`)
-	end
-	if changed > 0 then
-		table.insert(parts, `{changed} changed since the last export`)
-	end
-	if targets > #items then
-		return `{plural(#items, "upload")} needed for {targets} animations ({table.concat(parts, ", ")}). Clips with identical keyframes share one upload:`
-	end
-	return `{plural(#items, "upload")} needed ({table.concat(parts, ", ")}):`
-end
-
-function Export.Describe(items, limit)
-	local lines = {}
-	for index, item in items do
-		if index > (limit or 6) then
-			table.insert(lines, `…and {#items - index + 1} more`)
-			break
-		end
-		table.insert(lines, `• {item.Cutscene.Name}: {label(item)} ({string.format("%.1f", item.Length)} s){if item.Smooth then " · baked" else ""}{if item.Never then "" else " · changed"}`)
-	end
-	return table.concat(lines, "\n")
-end
-
-local function introContent(app, state)
-	local content = UI.Create("Frame", {
-		Name = "ExportScope",
-		Size = UDim2.new(1, 0, 0, 0),
-		AutomaticSize = Enum.AutomaticSize.Y,
-		List = { Padding = 6 },
-	})
-	local summary = UI.Create("TextLabel", {
-		Name = "Summary",
-		Parent = content,
-		LayoutOrder = 1,
-		Text = "",
-		TextSize = 13,
+local function text(props)
+	return UI.Create("TextLabel", {
+		Name = props.Name,
+		Parent = props.Parent,
+		LayoutOrder = props.LayoutOrder or 0,
+		Text = props.Text or "",
+		TextSize = props.TextSize or 13,
+		TextColor3 = props.TextColor3,
 		TextWrapped = true,
 		TextXAlignment = Enum.TextXAlignment.Left,
 		Size = UDim2.new(1, 0, 0, 0),
 		AutomaticSize = Enum.AutomaticSize.Y,
 	})
+end
+
+function Export.Scope(items)
+	local targets, never = Collect.Count(items)
+	if #items == 0 then
+		return "Every animation in scope matches its last export, so nothing needs uploading."
+	end
+	local current = 0
+	for _, item in items do
+		if not item.Stale then
+			current += 1
+		end
+	end
+	local changed = #items - never - current
+	local parts = {}
+	if never > 0 then
+		table.insert(parts, `{never} never uploaded`)
+	end
+	if changed > 0 then
+		table.insert(parts, `{changed} changed since the last upload`)
+	end
+	if current > 0 then
+		table.insert(parts, `{current} uploaded again on request`)
+	end
+	if targets > #items then
+		return `{plural(#items, "upload")} for {targets} animations ({table.concat(parts, ", ")}). Clips with identical keyframes share one upload:`
+	end
+	return `{plural(#items, "upload")} ({table.concat(parts, ", ")}):`
+end
+
+function Export.Describe(items, limit)
+	local lines = {}
+	for index, item in items do
+		if index > (limit or 8) then
+			table.insert(lines, `…and {#items - index + 1} more`)
+			break
+		end
+		table.insert(lines, `• {item.Cutscene.Name}: {label(item)} ({string.format("%.1f", item.Length)} s){if item.Idle then " · idle loop" else ""}{if item.Smooth then " · baked" else ""}`)
+	end
+	return table.concat(lines, "\n")
+end
+
+local function queueContent(app, state)
+	local content = UI.Create("Frame", {
+		Name = "ExportQueue",
+		Size = UDim2.new(1, 0, 0, 0),
+		AutomaticSize = Enum.AutomaticSize.Y,
+		List = { Padding = 8 },
+	})
+	local function lift()
+		raise(content, 402)
+	end
+	local summary = text({ Name = "Summary", Parent = content, LayoutOrder = 1 })
 	local function render()
-		state.Items = Collect.Candidates(app, state.All, state.Force)
+		if not state.Fixed then
+			state.Items = Collect.Candidates(app, state.All, state.Force)
+		end
 		local count = #state.Items
 		summary.Text = if count == 0 then Export.Scope(state.Items) else `{Export.Scope(state.Items)}\n{Export.Describe(state.Items)}`
 	end
-	if #Collect.Folders(app, true) > 1 then
+	if not state.Fixed and #Collect.Folders(app, true) > 1 then
 		UI.Toggle({
 			Name = "AllCutscenes",
 			Parent = content,
@@ -103,79 +125,39 @@ local function introContent(app, state)
 			OnChanged = function(value)
 				state.All = value
 				render()
-				raise(content, 402)
+				lift()
 			end,
 		})
 	end
 	render()
+	state.Raise = lift
+	local picker = Creator.Picker(state)
+	picker.LayoutOrder = 3
+	picker.Parent = content
 	return raise(content, 402)
 end
 
-local function pickId(app, ask, hooks, item)
+function Export.Confirm(app, ask, state)
 	while true do
 		local choice = ask({
-			Title = "Pick the animation you just uploaded",
-			Text = `Link {label(item)} to its new asset. Pick it from your inventory, or paste the id from the upload window.`,
-			Buttons = { "Skip", "Paste id", "Pick from inventory" },
-			Primary = "Pick from inventory",
+			Title = if state.Fixed then "Export animation" else "Export animations",
+			Text = "These upload straight to Roblox, and each clip gets its new animation id automatically.",
+			Content = queueContent(app, state),
+			Buttons = { "Cancel", "Upload" },
+			Primary = "Upload",
+			Width = 460,
 		})
-		if choice == "Pick from inventory" then
-			local picker = hooks and hooks.Pick or function(plugin)
-				return plugin:PromptForExistingAssetIdAsync("Animation")
-			end
-			local ok, result = pcall(picker, app.Plugin)
-			local id = if ok then Collect.ParseId(result) else nil
-			if id then
-				return id
-			end
-			app:Notify(if ok then "No animation was picked" else "The asset picker failed: " .. tostring(result), "Warn")
-		elseif choice == "Paste id" then
-			local answer, text = ask({
-				Title = "Paste the animation id",
-				Text = "An id such as 1234567890, or rbxassetid://1234567890.",
-				Input = { Placeholder = "rbxassetid://…" },
-				Buttons = { "Back", "Save" },
-				Primary = "Save",
-			})
-			local id = if answer == "Save" then Collect.ParseId(text) else nil
-			if id then
-				return id
-			elseif answer == "Save" then
-				app:Notify("That is not an asset id", "Warn")
-			end
-		else
-			return nil
+		if choice ~= "Upload" then
+			return false
 		end
-	end
-end
-
-local function upload(app, ask, hooks, item, summary)
-	local previous = Selection:Get()
-	local ok, err = pcall(function()
-		local temp = Collect.Prepare(app.Deps, item)
-		Selection:Set({ temp })
-		local save = hooks and hooks.Save or function(plugin)
-			return plugin:SaveSelectedToRoblox()
+		if #state.Items == 0 then
+			app:Notify("Nothing needs uploading", "Info")
+			return false
 		end
-		save(app.Plugin, temp)
-	end)
-	pcall(Selection.Set, Selection, previous)
-	if not ok then
-		Collect.Cleanup()
-		table.insert(summary.Failed, { Item = item, Error = tostring(err) })
-		app:Notify(`Upload of {label(item)} failed: {err}`, "Error")
-		return
-	end
-	local id = pickId(app, ask, hooks, item)
-	Collect.Cleanup()
-	if not id then
-		table.insert(summary.Unlinked, { Item = item })
-		return
-	end
-	if Export.Store(app, item, id) then
-		table.insert(summary.Uploaded, { Item = item, Id = id })
-	else
-		table.insert(summary.Failed, { Item = item, Id = id, Error = `uploaded as rbxassetid://{id}, but the id could not be stored. Paste it into Animation id and press Mark as exported` })
+		if state.Creator then
+			return true
+		end
+		app:Notify("Enter the id of the group to upload to", "Warn")
 	end
 end
 
@@ -193,6 +175,118 @@ function Export.Store(app, item, id)
 	return stored == true
 end
 
+local function record(app, summary, item, id)
+	if Export.Store(app, item, id) then
+		table.insert(summary.Uploaded, { Item = item, Id = id })
+	else
+		table.insert(summary.Failed, { Item = item, Id = id, Error = `uploaded as rbxassetid://{id}, but the id could not be saved. Paste it into Animation id and press Mark as exported` })
+	end
+end
+
+local function progressModal(ask, creator, count)
+	local frame = UI.Create("Frame", {
+		Name = "ExportProgress",
+		Size = UDim2.new(1, 0, 0, 0),
+		AutomaticSize = Enum.AutomaticSize.Y,
+		List = { Padding = 4 },
+	})
+	local line = text({ Name = "Line", Parent = frame, LayoutOrder = 1, Text = "Starting…" })
+	raise(frame, 402)
+	local handle = { Stopped = false }
+	task.spawn(function()
+		local choice = ask({
+			Title = `Uploading {plural(count, "animation")}`,
+			Text = `To {Creator.Name(creator)}. Each id is saved to its clips as soon as its upload finishes.`,
+			Content = frame,
+			Buttons = { "Stop" },
+			Primary = "Stop",
+			Width = 460,
+		})
+		if choice == "Stop" then
+			handle.Stopped = true
+		end
+	end)
+	function handle.Set(value)
+		line.Text = value
+	end
+	function handle.Close()
+		local scrim = frame:FindFirstAncestor("ModalScrim")
+		if scrim then
+			scrim:Destroy()
+		end
+	end
+	return handle
+end
+
+local function byHand(app, ask, hooks, items, from, creator, summary)
+	for index = from, #items do
+		local item = items[index]
+		local result = Upload.ByHand(app, ask, hooks, item, creator, `Upload {index}/{#items}: {label(item)}`)
+		if result.Id then
+			record(app, summary, item, result.Id)
+		elseif result.Skipped then
+			table.insert(summary.Skipped, { Item = item })
+		elseif result.Error then
+			table.insert(summary.Failed, { Item = item, Error = result.Error })
+		else
+			for rest = index, #items do
+				table.insert(summary.NotReached, { Item = items[rest] })
+			end
+			return
+		end
+	end
+end
+
+function Export.UploadAll(app, ask, hooks, items, creator, summary)
+	local progress = progressModal(ask, creator, #items)
+	local stopped = function()
+		return progress.Stopped
+	end
+	for index, item in items do
+		if progress.Stopped then
+			for rest = index, #items do
+				table.insert(summary.NotReached, { Item = items[rest] })
+			end
+			break
+		end
+		progress.Set(`{index}/{#items}  {label(item)}`)
+		local result = Upload.WithRetry(app, hooks, item, creator, stopped)
+		if result.Id then
+			record(app, summary, item, result.Id)
+			if index < #items then
+				task.wait(Upload.Gap)
+			end
+		elseif result.Unavailable then
+			progress.Close()
+			local choice = ask({
+				Title = "Turn on direct uploads",
+				Text = BETA,
+				Buttons = { "Stop", "Upload by hand" },
+				Primary = "Upload by hand",
+				Width = 460,
+			})
+			if choice == "Upload by hand" then
+				byHand(app, ask, hooks, items, index, creator, summary)
+			else
+				for rest = index, #items do
+					table.insert(summary.NotReached, { Item = items[rest] })
+				end
+			end
+			summary.Unavailable = true
+			return
+		elseif result.Denied then
+			table.insert(summary.Failed, { Item = item, Error = `Roblox refused the upload to {Creator.Name(creator)}. Check that your role there can create assets` })
+			for rest = index + 1, #items do
+				table.insert(summary.NotReached, { Item = items[rest] })
+			end
+			break
+		else
+			table.insert(summary.Failed, { Item = item, Error = result.Error })
+		end
+	end
+	progress.Close()
+end
+
 function Export.Summary(summary)
 	local sections = {}
 	local function add(title, list, describe)
@@ -208,11 +302,8 @@ function Export.Summary(summary)
 			table.insert(sections, table.concat(lines, "\n"))
 		end
 	end
-	add("Uploaded", summary.Uploaded, function(entry)
+	add("Uploaded and linked", summary.Uploaded, function(entry)
 		return `{label(entry.Item)} → rbxassetid://{entry.Id}`
-	end)
-	add("Uploaded but not linked", summary.Unlinked, function(entry)
-		return label(entry.Item)
 	end)
 	add("Skipped", summary.Skipped, function(entry)
 		return label(entry.Item)
@@ -220,7 +311,7 @@ function Export.Summary(summary)
 	add("Failed", summary.Failed, function(entry)
 		return `{label(entry.Item)}: {entry.Error}`
 	end)
-	add("Not reached", summary.NotReached, function(entry)
+	add("Not uploaded", summary.NotReached, function(entry)
 		return label(entry.Item)
 	end)
 	if #summary.Partial > 0 then
@@ -228,9 +319,9 @@ function Export.Summary(summary)
 		for _, entry in summary.Partial do
 			table.insert(names, `{entry.Cutscene}/{entry.Name}`)
 		end
-		table.insert(sections, `Still played from keyframes, because some of their clips or their Idle are not exported: {table.concat(names, ", ")}`)
+		table.insert(sections, `Still played from keyframes in game, because some of their clips or their Idle are not uploaded: {table.concat(names, ", ")}`)
 	end
-	return if #sections > 0 then table.concat(sections, "\n\n") else "Nothing was exported."
+	return if #sections > 0 then table.concat(sections, "\n\n") else "Nothing was uploaded."
 end
 
 function Export.Run(app, options)
@@ -253,10 +344,11 @@ function Export.Run(app, options)
 	end
 	Export.Running = true
 	pausePreview(app)
-	local summary = { Uploaded = {}, Unlinked = {}, Skipped = {}, Failed = {}, NotReached = {}, Partial = {} }
+	local summary = { Uploaded = {}, Skipped = {}, Failed = {}, NotReached = {}, Partial = {} }
 	local ok, err = pcall(function()
-		local state = { All = options.All == true, Force = options.Force == true, Items = {} }
+		local state = { All = options.All == true, Force = options.Force == true, Items = {}, Choice = Creator.Load(app) }
 		if options.Clips then
+			state.Fixed = true
 			for _, clip in options.Clips do
 				local item = Collect.Item(app.Deps, clip, app.Document.Folder)
 				if item and (state.Force or item.Stale) then
@@ -264,62 +356,15 @@ function Export.Run(app, options)
 				end
 			end
 			state.Items = Collect.Group(state.Items)
-			local choice = ask({
-				Title = "Export animation",
-				Text = REMINDER,
-				Content = raise(UI.Create("TextLabel", {
-					Text = if #state.Items > 0 then Export.Describe(state.Items) else "This animation has no keyframes to export.",
-					TextSize = 13,
-					TextWrapped = true,
-					TextXAlignment = Enum.TextXAlignment.Left,
-					Size = UDim2.new(1, 0, 0, 0),
-					AutomaticSize = Enum.AutomaticSize.Y,
-				}), 402),
-				Buttons = { "Cancel", "Start" },
-				Primary = "Start",
-			})
-			if choice ~= "Start" then
-				return
-			end
-		else
-			local choice = ask({
-				Title = "Export animations",
-				Text = REMINDER,
-				Content = introContent(app, state),
-				Buttons = { "Cancel", "Start" },
-				Primary = "Start",
-				Width = 440,
-			})
-			if choice ~= "Start" then
-				return
-			end
 		end
-		local items = state.Items
-		if #items == 0 then
-			app:Notify("Every animation in scope is already exported", "Info")
+		if not Export.Confirm(app, ask, state) then
+			return
 		end
-		for index, item in items do
-			local choice = ask({
-				Title = `Export {index}/{#items}: {label(item)} ({string.format("%.1f", item.Length)} s)`,
-				Text = `{item.Cutscene.Name} · {if item.Idle then "The actor's Idle loop, needed before any of its clips can use uploaded animations. " else ""}{if item.Smooth then "Smooth keys: uploads a 30 fps bake so it plays like the preview." else "Uploads the keyframes as they are."}{if #item.Targets > 1 then ` The id is stored on all {#item.Targets} clips with these keyframes.` else ""} Upload opens Roblox's upload window.`,
-				Buttons = { "Stop", "Skip", "Upload" },
-				Primary = "Upload",
-			})
-			if choice == "Upload" then
-				upload(app, ask, hooks, item, summary)
-			elseif choice == "Skip" then
-				table.insert(summary.Skipped, { Item = item })
-			else
-				for rest = index, #items do
-					table.insert(summary.NotReached, { Item = items[rest] })
-				end
-				break
-			end
-		end
+		Creator.Save(app, state.Choice)
+		summary.Creator = state.Creator
+		Export.UploadAll(app, ask, hooks, state.Items, state.Creator, summary)
 		summary.Partial = Collect.Partial(app, state.All)
-		if #items > 0 then
-			ask({ Title = "Export finished", Text = Export.Summary(summary), Buttons = { "Done" }, Width = 440 })
-		end
+		ask({ Title = "Export finished", Text = Export.Summary(summary), Buttons = { "Done" }, Width = 460 })
 	end)
 	Collect.Cleanup()
 	Export.Running = false

@@ -21,7 +21,7 @@ The user guide is the repo's `README.md`. This file covers how the plugin is bui
 | `Inspector/`, `ScriptPanel/`, `Toolbar/` | Panels generated from `Timeline.Schema` |
 | `Tools/` | Pose tool (joint pick, rings, range edit, key roles), key gizmos for Camera, Move and Attach |
 | `Preview/` | Runs the real runtime on copies, with stand-ins, camera lock and restore |
-| `Export/` | Collect, bake, upload, pick id, store |
+| `Export/` | Collect, choose the creator, upload with CreateAssetAsync (by hand as a fallback), store ids |
 | `JointGroups.luau` | Sorts joint keys into Body, Head, arms, hands, legs and cloth by name and side |
 
 ## Undo model

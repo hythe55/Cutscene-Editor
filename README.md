@@ -90,11 +90,12 @@ Every change is one undo step, including a range edit, and the preview re-sample
 
 ### Export animations
 
-1. Press **Export**. Pick the group that owns the experience as the Creator in Roblox's upload window, or the animations will not play in the game.
-2. The first window lists what needs uploading: clips never exported and clips changed since their export. Clips with identical keyframes share one upload, and each animated actor's Idle is included. The "All cutscenes in this place" checkbox widens the list to every cutscene.
-3. For each upload choose Upload, Skip or Stop. Upload selects a temporary copy (a 30 fps bake for Smooth clips) and opens Roblox's upload window.
-4. Then pick the new animation from your inventory, or paste its id. The id and the keyframe hash are stored on every clip that shares it, in one undo step.
-5. A summary lists what was uploaded, skipped, failed or not reached, and which actors still play from keyframes. An actor uses uploaded animations only when all its clips and its Idle are exported and unchanged.
+1. Press **Export**. One window lists everything that needs uploading: clips never uploaded and clips changed since their upload, plus each animated actor's Idle. Clips with identical keyframes share one upload. "All cutscenes in this place" widens the list to every cutscene.
+2. Under **Upload to**, pick where the animations go. It starts on the experience's owner (for a group game, that group), which is what the game needs: animations owned by anyone else will not play in it. You can also pick your account or type another group's id. The choice is remembered.
+3. Press **Upload**. Each animation uploads straight to Roblox (Smooth clips as a 30 fps bake), and its new id is saved on every clip that uses it, one undo step per upload. **Stop** ends the queue after the current upload.
+4. A summary lists what was uploaded and linked, what failed and why, and which actors still play from keyframes. An actor uses uploaded animations only when all its clips and its Idle are uploaded and unchanged.
+
+Direct uploads use `AssetService:CreateAssetAsync`, which works only in locally installed plugins and only with a Studio beta turned on: **File > Beta Features > CreateAssetAsync Lua API**, then restart Studio. Without it, Export says so and offers to upload by hand instead. Roblox's upload window then opens for each animation, and you paste the id it shows.
 
 You can also type an id into an Animation clip and press **Mark as exported**.
 

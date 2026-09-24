@@ -23,15 +23,19 @@ Otherwise the actor plays from keyframes (the replicas). The mode is decided aft
 ## Export flow (plugin)
 
 1. Collect the clips that need uploading: never exported, or `ExportedHash ~= ContentHash`. Include every animated actor's Idle. Clips with identical content share one upload, keyed by hash.
-2. For each upload, the user picks Upload, Skip or Stop. Upload selects an archivable temporary copy named after the clip and calls `plugin:SaveSelectedToRoblox()`. A clip with `Interpolation = "Smooth"` uploads `Timeline.Bake(sequence, 30)` instead, because the engine ignores Smooth.
-3. `SaveSelectedToRoblox` returns nothing, so the plugin follows up with `PromptForExistingAssetIdAsync("Animation")` plus a paste box for the new id.
+2. One window shows the queue and **Upload to**, which defaults to the experience owner (`game.CreatorType`, `game.CreatorId`). The user can instead pick their own account (`StudioService:GetUserId()`) or enter a group id.
+3. Each item uploads with `AssetService:CreateAssetAsync(keyframeSequence, Enum.AssetType.Animation, { Name, Description, CreatorType, CreatorId })`, which returns `Enum.CreateAssetResult.Success` and the new asset id. A clip with `Interpolation = "Smooth"` uploads `Timeline.Bake(sequence, 30)` instead, because the engine ignores Smooth.
 4. The id and the hash are written to every clip sharing that upload in one undo step. That write re-evaluates the actor's replicas.
-5. A summary lists uploaded, skipped, failed and not reached items, and which actors still play from keyframes.
+5. A summary lists uploaded, failed and not reached items, and which actors still play from keyframes.
 
 ## Edge cases
 
 - **Upload owner.** Animations must be uploaded to the group or user that owns the experience, or they will not play in game. Say so in the upload prompt.
-- **Nobody has tested the real dialog from an agent.** Every automated test stubs Save and Pick. The first real upload is on the user's checklist.
+- **CreateAssetAsync needs a beta and a local plugin.** It works only from locally installed plugins (or the command bar), and only with File > Beta Features > "CreateAssetAsync Lua API" on. Without it, the call warns "not available yet" instead of uploading. Detect that and fall back.
+- **Animation is not in the documented type list** (Model, Plugin, Mesh, Image), but uploading a KeyframeSequence as `Enum.AssetType.Animation` works in practice (2026). Treat a failure as a possible API change and keep the by-hand fallback.
+- **`plugin:SaveSelectedToRoblox()` does not wait and returns nothing.** It opens Roblox's upload window and returns at once, so a prompt shown right after it asks for an id before the user has uploaded anything. The by-hand fallback must say the window is open, wait for the pasted id, and offer to reopen the window.
+- **Result handling.** `PermissionDenied` means the user's role cannot create assets for that group, so stop the queue. Retry after a pause when the message mentions too many requests. Space uploads a little apart.
+- **Agents cannot test a real upload** without publishing to the user's account. Stub `Create`, `Save` and `Ask` in tests, and put one real export on the user's checklist.
 - **Downloading.** `KeyframeSequenceProvider:GetKeyframeSequenceAsync` returned empty sequences after the first call. `AnimationClipProvider:GetAnimationClipAsync` works every time.
 - **Registering clips in edit mode.** `RegisterActiveAnimationClip` works only in Solo play. `RegisterAnimationClip` or `KeyframeSequenceProvider:RegisterKeyframeSequence` work everywhere and give the same hash on server and client.
 - **Smooth is not an engine feature.** Animator checks and uploads of a Smooth clip do not match the game. Sample Smooth clips through the runtime, and upload the bake. The bake matched the runtime within 0.3 degrees.
