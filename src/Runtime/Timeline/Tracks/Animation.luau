@@ -1,6 +1,5 @@
 local RunService = game:GetService("RunService")
 
-local Sampler = require(script.Parent.Parent.Sampler)
 local Sources = require(script.Parent.Parent.Sources)
 
 local Animation = {}
@@ -44,13 +43,6 @@ local function assetId(id)
 	return id
 end
 
-local function qualifies(sequence, animationId, exportedHash)
-	return sequence ~= nil
-		and animationId ~= nil
-		and animationId ~= ""
-		and exportedHash == Sampler.Hash(sequence)
-end
-
 function Animation.UsesAnimator(ctx, actorId)
 	if not ctx.Prepared then
 		return false
@@ -70,7 +62,7 @@ function Animation.UsesAnimator(ctx, actorId)
 			end
 			local actor = ctx:GetActor(actorId)
 			local idle = actor and actor.IdleSequence
-			if mode and idle and not qualifies(idle, idle:GetAttribute("AnimationId"), idle:GetAttribute("ExportedHash")) then
+			if mode and idle and not Sources.IsExported(idle, Sources.Keyframes(idle)) then
 				mode = false
 			end
 		end
@@ -103,7 +95,8 @@ function Animation.Frame(ctx)
 	for actorId in ctx:Registry("Animation") do
 		local actor = ctx:GetActor(actorId)
 		local idle = actor and actor.IdleSequence
-		if idle and not actor.IdleTrack and Animation.UsesAnimator(ctx, actorId) then
+		local fallback = idle and not actor.Idle and not ctx.Preview and RunService:IsRunning() and Sources.IsExported(idle)
+		if idle and not actor.IdleTrack and (fallback or Animation.UsesAnimator(ctx, actorId)) then
 			actor.IdleTrack = loadTrack(ctx, actorId, idle:GetAttribute("AnimationId"), true, Enum.AnimationPriority.Idle)
 			if actor.IdleTrack then
 				actor.IdleTrack:Play(0, 1, 1)

@@ -103,7 +103,9 @@ You can also type an id into an Animation clip and press **Mark as exported**.
 
 - Keyframes are kept in `ServerStorage.CutsceneSources.<Cutscene>`, so clients do not download them once they are exported. Each Animation clip stores `SourceId` and `ContentHash`.
 - A clip also keeps a `Keyframes` copy for clients while its actor still plays from keyframes in game. The copies go away only when every Animation clip of that actor and its Idle are exported and unchanged. They come back as soon as one of them changes, because one changed clip makes the whole actor play from keyframes again.
-- The editor creates and updates all of this itself. Older cutscenes with keyframes stored in the clip move over the first time you edit a clip.
+- An actor's Idle works the same way. Its keyframes live in `CutsceneSources`, and once the actor is fully exported the `Idle` under the actor is an empty stub that only holds its `AnimationId`, `ExportedHash`, `SourceId` and `ContentHash`.
+- The editor creates and updates all of this itself. Opening a cutscene tidies anything left over (for example keyframes from before this system, or an Idle that is already exported) in one "Move keyframes to ServerStorage" undo step.
+- Game code that reads an Idle directly should use `Timeline.Sources.Keyframes(idle)`, and play `idle:GetAttribute("AnimationId")` through the Animator when that returns nil.
 
 ## Layout
 
@@ -161,7 +163,9 @@ Sources are read as UTF-8, and CRLF or lone CR line endings become LF, as Studio
 
 `skill/cutscene-timeline` is a Claude Code skill: the data format, the runtime API, export, dialogue providers, animation authoring, and the Studio and MCP edge cases found while building a full cutscene with it, plus helper scripts. The raw notes it was distilled from stay local (`skill/notes/` is ignored).
 
-## Runtime contract (0.5.1)
+## Runtime contract (0.5.2)
+
+- **Idle stubs.** When an actor is fully exported, its `Idle` KeyframeSequence has no keyframes. `Timeline.Sources.Keyframes(idle)` returns the ServerStorage source (server and plugin) or nil (client). The runtime then plays the Idle's `AnimationId` through the Animator. `Sources.IsExported(idle)` uses the stored `ContentHash`.
 
 - **Players.** `Timeline.new` takes `Players = { userId, ... }`, the players taking part in order. It fills Role actors that `Roles` leaves empty, and Group actors use all of them. The old name `Students` still works when `Players` is absent. Role ids are any string. The editor suggests Player1 to Player4, and existing ids such as Student1 keep working. The Group attribute's value is not read, so old `Group = "Students"` actors play unchanged.
 

@@ -299,15 +299,121 @@ return function(Document)
 				return false
 			end
 		end
-		local config = self:GetActor(actorId)
-		local idle = config and config:FindFirstChild("Idle")
-		if idle and idle:IsA("KeyframeSequence") then
-			local id = idle:GetAttribute("AnimationId")
-			if type(id) ~= "string" or id == "" or idle:GetAttribute("ExportedHash") ~= sources.Hash(idle) then
-				return false
-			end
+		local idle = self:_idleOf(actorId)
+		if idle and not sources.IsExported(idle, sources.Keyframes(idle)) then
+			return false
 		end
 		return true
+	end
+
+	function Document:_idleOf(actorId)
+		local config = self:GetActor(actorId)
+		local idle = config and config:FindFirstChild("Idle")
+		return if idle and idle:IsA("KeyframeSequence") then idle else nil
+	end
+
+	function Document:_syncIdle(actorId, exported)
+		local sources = self:_sources()
+		local idle = self:_idleOf(actorId)
+		if not idle then
+			return
+		end
+		local source = sources.Find(idle)
+		local keyframes = idle:GetKeyframes()
+		if not source then
+			if #keyframes == 0 then
+				return
+			end
+			local archivable = idle.Archivable
+			idle.Archivable = true
+			source = idle:Clone()
+			idle.Archivable = archivable
+			local id = HttpService:GenerateGUID(false)
+			source.Name = id
+			for _, name in { "AnimationId", "ExportedHash", "ContentHash" } do
+				source:SetAttribute(name, nil)
+			end
+			source:SetAttribute("SourceId", id)
+			source:SetAttribute("Clip", actorId .. " Idle")
+			self.Touched[source] = true
+			source.Parent = self:_sourceFolder()
+			self:_set(idle, "SourceId", id)
+		elseif #keyframes > 0 and sources.Hash(idle) ~= sources.Hash(source) then
+			self:Touch(source)
+			for _, keyframe in source:GetKeyframes() do
+				keyframe.Parent = nil
+			end
+			for _, keyframe in keyframes do
+				local copy = keyframe:Clone()
+				self.Touched[copy] = true
+				copy.Parent = source
+			end
+		end
+		self:_set(idle, "ContentHash", sources.Hash(source))
+		if exported then
+			for _, keyframe in keyframes do
+				self:Touch(keyframe)
+				keyframe.Parent = nil
+			end
+		elseif #keyframes == 0 then
+			for _, keyframe in source:GetKeyframes() do
+				local copy = keyframe:Clone()
+				self.Touched[copy] = true
+				copy.Parent = idle
+			end
+		end
+	end
+
+	function Document:_needsTidy(actorId)
+		local sources = self:_sources()
+		local clips = self:_actorClips(actorId)
+		local exported = self:_actorExported(actorId, clips)
+		for _, clip in clips do
+			local replica = clip:FindFirstChild("Keyframes")
+			local source = sources.Find(clip)
+			if (replica and not source) or (exported and replica) or (not exported and source and not replica) then
+				return true
+			end
+		end
+		local idle = self:_idleOf(actorId)
+		if idle then
+			local count = #idle:GetKeyframes()
+			local source = sources.Find(idle)
+			if (count > 0 and not source) or (exported and count > 0) or (not exported and source and count == 0) then
+				return true
+			end
+		end
+		return false
+	end
+
+	function Document:TidySources()
+		if not self:_sources() then
+			return false
+		end
+		local seen, work = {}, {}
+		for _, track in self:GetTracks() do
+			local actorId = track:GetAttribute("Actor")
+			if track:GetAttribute("Kind") == "Animation" and type(actorId) == "string" and not seen[actorId] then
+				seen[actorId] = true
+				if self:_needsTidy(actorId) then
+					table.insert(work, actorId)
+				end
+			end
+		end
+		if #work == 0 then
+			return false
+		end
+		return self:_record("Move keyframes to ServerStorage", function()
+			for _, actorId in work do
+				for _, clip in self:_actorClips(actorId) do
+					if not clip:GetAttribute("SourceId") and clip:FindFirstChild("Keyframes") then
+						self:_sequence(clip)
+					end
+					self:_noteSync(clip)
+				end
+			end
+			return true
+		end) == true
 	end
 
 	function Document:_syncHash(clip)
@@ -378,6 +484,7 @@ return function(Document)
 				for _, clip in clips do
 					self:_syncReplica(clip, exported, changed[clip] == true)
 				end
+				self:_syncIdle(actorId, exported)
 			end
 		end)
 		self.Syncing = false

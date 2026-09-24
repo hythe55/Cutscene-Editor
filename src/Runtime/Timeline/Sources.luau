@@ -33,6 +33,9 @@ function Sources.Find(clip)
 end
 
 function Sources.Replica(clip)
+	if clip:IsA("KeyframeSequence") then
+		return if #clip:GetKeyframes() > 0 then clip else nil
+	end
 	local replica = clip:FindFirstChild("Keyframes")
 	if replica and replica:IsA("KeyframeSequence") then
 		return replica

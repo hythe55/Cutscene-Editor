@@ -4,6 +4,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Schema = require(script.Parent.Schema)
 local Sampler = require(script.Parent.Sampler)
+local Sources = require(script.Parent.Sources)
 local Copy = require(script.Parent.Util.Copy)
 
 local Actors = {}
@@ -248,7 +249,8 @@ local function resolve(config, attributes, options, roles, container)
 	local idle = config:FindFirstChild("Idle")
 	if idle and idle:IsA("KeyframeSequence") then
 		actor.IdleSequence = idle
-		actor.Idle = Sampler.new(idle)
+		local keyframes = Sources.Keyframes(idle)
+		actor.Idle = if keyframes then Sampler.new(keyframes) else nil
 	end
 	return actor
 end

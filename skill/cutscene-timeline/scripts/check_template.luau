@@ -151,7 +151,7 @@ for actorId, clips in byActor do
 		end
 	end
 	local idle = folder.Actors:FindFirstChild(actorId) and folder.Actors[actorId]:FindFirstChild("Idle")
-	if idle and idle:GetAttribute("ExportedHash") ~= Timeline.ComputeHash(idle) then
+	if idle and not Sources.IsExported(idle, Sources.Keyframes(idle)) then
 		all = false
 	end
 	exportedActor[actorId] = all

@@ -141,6 +141,14 @@ function App:OpenCutscene(folder)
 		document:OnAfterWrite(function(name, ok)
 			self.Preview:AfterWrite(name, ok)
 		end)
+		task.defer(function()
+			if self.Document == document and not document.Destroyed then
+				local ok, tidied = pcall(document.TidySources, document)
+				if ok and tidied then
+					self:Notify("Moved keyframes that clients do not need into ServerStorage", "Info")
+				end
+			end
+		end)
 		self:FitView()
 	end
 	self.Shell:Refresh()

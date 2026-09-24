@@ -120,7 +120,8 @@ local function idleSection(inspector, actor, order)
 	local _, body = Layout.Section(inspector, order, "ActorIdle", "Idle base layer")
 	local info = Layout.Text(body, 0, "", { Name = "IdleInfo" })
 	inspector:Bind(function()
-		info.Text = `{#idle:GetKeyframes()} keyframes · {string.format("%.2f", Animation.Length(idle))} s · loops under every clip. Export uploads it together with the clips.`
+		local sequence = Animation.Sequence(idle) or idle
+		info.Text = `{#sequence:GetKeyframes()} keyframes · {string.format("%.2f", Animation.Length(sequence))} s · loops under every clip. Export uploads it together with the clips.`
 	end)
 	Animation.ExportControls(inspector, body, idle, 1, false, { Noun = "idle" })
 	for _, entry in app.Deps.Schema.Idle do
@@ -169,7 +170,7 @@ local function exportTargets(document)
 				seen[actorId] = true
 				local idle = Collect.IdleOf(document.Folder, actorId)
 				if idle then
-					table.insert(targets, { Target = idle, Sequence = idle })
+					table.insert(targets, { Target = idle, Sequence = Animation.Sequence(idle) or idle })
 				end
 			end
 			for _, clip in document:GetClips(track) do

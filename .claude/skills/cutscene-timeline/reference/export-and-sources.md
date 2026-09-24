@@ -6,6 +6,7 @@
 - Clients cannot see ServerStorage. A clip also keeps a `Keyframes` child, a replica, for as long as its actor may play from keyframes in game.
 - The replica rule works **per actor**. Replicas are removed only when every Animation clip of the actor and the actor's Idle are exported and current. When any of them changes, all of that actor's replicas come back.
 - Why: the runtime decides uploaded mode per actor, so one stale clip sends every clip of that actor back to keyframes. A per-clip rule would leave the exported clips with no keyframes on the client, and they would silently not play.
+- **Idle loops follow the same rule.** The Idle KeyframeSequence stays under the actor as the owner of `AnimationId`, `ExportedHash`, `SourceId` and `ContentHash`. Its keyframes are copied to a source in CutsceneSources, and they are stripped (leaving an empty stub) while the actor is fully exported. Anything that samples an Idle directly, such as a game's pre-cutscene idle loop, must use `Sources.Keyframes(idle)` and fall back to playing the AnimationId, or the rig stands in its rest pose.
 - The runtime has a fallback for data edited outside the plugin. An exported clip with no keyframes on the client plays through the Animator, even when the rest of its actor is on keyframes.
 
 Read keyframes with `Timeline.Sources.Keyframes(clip)` (source first, then the replica) or `Document:GetSequence(clip)` in the editor. Never read `clip.Keyframes` directly.

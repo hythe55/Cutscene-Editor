@@ -13,7 +13,8 @@ ReplicatedStorage.Cutscenes : Folder
         attrs: Source ("Tag"|"Template"|"Role"|"Group"), Tag, Role, Group, Mode ("Clone"|"Original"),
                DisplayName, Portrait ("Viewport"|"Headshot"|"None"), PortraitJoint,
                TalkJoints (comma list), TalkOffset (Vector3), Anchor (bool, default true)
-        children: Template (Model, when Source = Template), Idle (KeyframeSequence, optional)
+        children: Template (Model, when Source = Template), Idle (KeyframeSequence, optional;
+                  an empty stub holding AnimationId/ExportedHash/SourceId/ContentHash once exported)
     Tracks : Folder
       <TrackName> : Folder       attrs: Kind, Actor, Order (lane), Muted, Locked
         <ClipName> : Configuration   attrs: Start, Duration, Speed (default 1), plus the kind's fields
