@@ -220,8 +220,8 @@ return function(Document)
 	end
 
 	function Document:GetKeyframes(clip)
-		local sequence = clip and clip:FindFirstChild("Keyframes")
-		if not sequence or not sequence:IsA("KeyframeSequence") then
+		local sequence = clip and self:GetSequence(clip)
+		if not sequence then
 			return {}
 		end
 		local list = sequence:GetKeyframes()

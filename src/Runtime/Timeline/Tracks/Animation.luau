@@ -1,6 +1,7 @@
 local RunService = game:GetService("RunService")
 
 local Sampler = require(script.Parent.Parent.Sampler)
+local Sources = require(script.Parent.Parent.Sources)
 
 local Animation = {}
 Animation.Priority = 20
@@ -29,7 +30,7 @@ end
 
 local function sampleTime(state, localTime)
 	local time = localTime + state.Props.ClipOffset
-	local length = state.Sampler and state.Sampler.Length or 0
+	local length = if state.Sampler then state.Sampler.Length elseif state.Track then state.Track.Length else 0
 	if state.Props.Loop and length > 0 then
 		time %= length
 	end
@@ -62,7 +63,7 @@ function Animation.UsesAnimator(ctx, actorId)
 		if not ctx.Preview and RunService:IsRunning() and #list > 0 then
 			mode = true
 			for _, state in list do
-				if not qualifies(state.Sequence, state.Props.AnimationId, state.Props.ExportedHash) then
+				if not state.Exported then
 					mode = false
 					break
 				end
@@ -112,15 +113,17 @@ function Animation.Frame(ctx)
 end
 
 function Animation.Prepare(clip, props, track, ctx)
-	local sequence = clip:FindFirstChild("Keyframes")
-	if not (sequence and sequence:IsA("KeyframeSequence")) then
-		sequence = clip:FindFirstChildOfClass("KeyframeSequence")
+	local sequence = Sources.Keyframes(clip)
+	local exported = Sources.IsExported(clip, sequence)
+	if not sequence and not exported then
+		warn(`Timeline: {clip:GetFullName()} has no keyframes here and no current exported AnimationId; it is skipped`)
 	end
 	local state = {
 		Actor = track.Actor,
 		Props = props,
 		Order = track.Order,
 		Sequence = sequence,
+		Exported = exported,
 		Sampler = sequence and ctx:GetSampler(sequence),
 		Weight = 0,
 	}
@@ -132,7 +135,8 @@ function Animation.Prepare(clip, props, track, ctx)
 end
 
 function Animation.Enter(state, ctx)
-	if Animation.UsesAnimator(ctx, state.Actor) then
+	local fallback = state.Exported and not state.Sampler and not ctx.Preview and RunService:IsRunning()
+	if fallback or Animation.UsesAnimator(ctx, state.Actor) then
 		state.Track = state.Track or loadTrack(ctx, state.Actor, state.Props.AnimationId, state.Props.Loop)
 		if state.Track then
 			state.Track:Play(0, 0.0001, state.Props.Speed)
@@ -141,10 +145,6 @@ function Animation.Enter(state, ctx)
 end
 
 function Animation.Update(state, localTime, alpha, ctx)
-	local sampler = state.Sampler
-	if not sampler then
-		return
-	end
 	local props = state.Props
 	local weight = fadeWeight(props, alpha * props.Duration)
 	local time = sampleTime(state, localTime)
@@ -153,6 +153,10 @@ function Animation.Update(state, localTime, alpha, ctx)
 		if math.abs(state.Track.TimePosition - time) > 0.15 then
 			state.Track.TimePosition = time
 		end
+		return
+	end
+	local sampler = state.Sampler
+	if not sampler then
 		return
 	end
 	if weight <= 0 then

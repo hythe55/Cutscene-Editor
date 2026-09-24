@@ -12,6 +12,11 @@ local function keyframeAt(document, info, clipTime)
 	if existing and existing.Parent == sequence then
 		return existing, false
 	end
+	for _, keyframe in sequence:GetKeyframes() do
+		if math.abs(keyframe.Time - clipTime) <= PoseMath.Tolerance then
+			return keyframe, false
+		end
+	end
 	local keyframe = Instance.new("Keyframe")
 	keyframe.Time = round(math.max(clipTime, 0))
 	keyframe.Parent = sequence
@@ -87,6 +92,58 @@ function PoseEdit.SetJoint(document, info, clipTime, jointKey, cframe, hold)
 				if not PoseMath.PoseOf(holdFrame, jointKey) or PoseMath.PoseOf(holdFrame, jointKey).Weight <= 0 then
 					write(doc, info, holdFrame, jointKey, hold)
 				end
+			end
+		end
+		return target, written
+	end)
+end
+
+function PoseEdit.RangeTargets(info, jointKey, clipTime, range)
+	local list = {}
+	if not (info and range) then
+		return list
+	end
+	local low, high = clipTime - math.max(range.Before or 0, 0), clipTime + math.max(range.After or 0, 0)
+	local soft = math.max(range.Falloff or 0, 0)
+	for _, keyframe in info.Keyframes do
+		local t = keyframe.Time
+		if math.abs(t - clipTime) > PoseMath.Tolerance then
+			local weight
+			if t >= low and t <= high then
+				weight = 1
+			elseif soft > 0 and t < low and t >= low - soft then
+				weight = 1 - (low - t) / soft
+			elseif soft > 0 and t > high and t <= high + soft then
+				weight = 1 - (t - high) / soft
+			end
+			if weight then
+				weight = weight * weight * (3 - 2 * weight)
+			end
+			if weight and weight > 1e-3 then
+				local pose = PoseMath.PoseOf(keyframe, jointKey)
+				if pose and pose.Weight > 0 then
+					table.insert(list, { Keyframe = keyframe, Time = t, Weight = weight, Original = pose.CFrame })
+				end
+			end
+		end
+	end
+	return list
+end
+
+function PoseEdit.Blend(original, delta, weight)
+	return original * CFrame.identity:Lerp(delta, weight)
+end
+
+function PoseEdit.SetJointRange(document, info, clipTime, jointKey, base, value, hold, targets)
+	if not targets or #targets == 0 then
+		return PoseEdit.SetJoint(document, info, clipTime, jointKey, value, hold)
+	end
+	local delta = base:Inverse() * value
+	return document:Batch("Edit pose range", function(doc)
+		local target, written = PoseEdit.SetJoint(doc, info, clipTime, jointKey, value, hold)
+		for _, entry in targets do
+			if entry.Keyframe.Parent then
+				doc:WritePose(info.Clip, entry.Keyframe, jointKey, PoseEdit.Blend(entry.Original, delta, entry.Weight))
 			end
 		end
 		return target, written

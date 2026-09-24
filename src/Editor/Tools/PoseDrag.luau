@@ -57,6 +57,11 @@ function PoseDrag:_liveCopy(state)
 	if not weighted then
 		pose.EasingStyle, pose.EasingDirection = PoseMath.InsertEasing(info, state.Joint, time)
 	end
+	local range = {}
+	for _, target in state.Targets or {} do
+		local livePose = PoseEdit.Chain(clone, liveKeyframe(clone, target.Time), state.Joint)
+		table.insert(range, { Pose = livePose, Original = target.Original, Weight = target.Weight })
+	end
 	if state.Hold then
 		for _, holdTime in PoseEdit.HoldTimes(info, time) do
 			local hold, existed = PoseEdit.Chain(clone, liveKeyframe(clone, holdTime), state.Joint)
@@ -66,7 +71,7 @@ function PoseDrag:_liveCopy(state)
 			end
 		end
 	end
-	return { Track = track, Original = track.Sampler, Clone = clone, Pose = pose, Dirty = false }
+	return { Track = track, Original = track.Sampler, Clone = clone, Pose = pose, Range = range, Dirty = false }
 end
 
 function PoseDrag:Begin()
@@ -83,6 +88,9 @@ function PoseDrag:Begin()
 		Keyframe = keyframe,
 		Hold = if tool.Keyed[tool.Joint] then nil else base,
 	}
+	if tool.Apply == "Range" then
+		state.Targets = PoseEdit.RangeTargets(tool.Info, tool.Joint, tool.ClipTime, tool.Range)
+	end
 	state.Live = self:_liveCopy(state)
 	self.State = state
 	self.Active = true
@@ -99,6 +107,12 @@ function PoseDrag:_set(value)
 	if live then
 		live.Pose.CFrame = value
 		live.Pose.Weight = 1
+		if #live.Range > 0 then
+			local delta = state.Base:Inverse() * value
+			for _, entry in live.Range do
+				entry.Pose.CFrame = PoseEdit.Blend(entry.Original, delta, entry.Weight)
+			end
+		end
 		live.Dirty = true
 	end
 	self.Tool.Dirty = true
@@ -155,7 +169,7 @@ function PoseDrag:Finish()
 		state.Live.Clone:Destroy()
 	end
 	local tool = self.Tool
-	local result = PoseEdit.SetJoint(tool.App.Document, tool.Info, state.ClipTime, state.Joint, state.Value, state.Hold)
+	local result = PoseEdit.SetJointRange(tool.App.Document, tool.Info, state.ClipTime, state.Joint, state.Base, state.Value, state.Hold, state.Targets)
 	if not result and state.Live then
 		state.Live.Track.Sampler = state.Live.Original
 		Live.Reseek(tool.App)

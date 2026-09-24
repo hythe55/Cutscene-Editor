@@ -266,8 +266,8 @@ function Model.Item(view, clip, info, row)
 		end
 	end
 	if kind == "Animation" then
-		local sequence = clip:FindFirstChild("Keyframes")
-		if sequence and sequence:IsA("KeyframeSequence") then
+		local sequence = document:GetSequence(clip)
+		if sequence then
 			item.Keys, item.SourceLength = sequenceKeys(sequence)
 			item.Sequence = sequence
 		end

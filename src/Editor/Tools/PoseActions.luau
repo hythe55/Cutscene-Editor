@@ -68,7 +68,24 @@ return function(PoseTool)
 		else
 			value = PoseMath.Rotate(base, axis, math.rad(self.Step) * sign)
 		end
-		return PoseEdit.SetJoint(self.App.Document, self.Info, self.ClipTime, self.Joint, value, hold)
+		local targets = if self.Apply == "Range" then PoseEdit.RangeTargets(self.Info, self.Joint, self.ClipTime, self.Range) else nil
+		return PoseEdit.SetJointRange(self.App.Document, self.Info, self.ClipTime, self.Joint, base, value, hold, targets)
+	end
+
+	function PoseTool:SetApply(mode)
+		self.Apply = if mode == "Range" then "Range" else "Key"
+		self.App:SetSetting("PoseApply", self.Apply)
+		self.PanelDirty = true
+		self.Dirty = true
+	end
+
+	function PoseTool:SetRange(field, value)
+		if type(value) == "number" then
+			self.Range[field] = math.max(value, 0)
+			self.App:SetSetting("PoseRange", self.Range)
+			self.PanelDirty = true
+			self.Dirty = true
+		end
 	end
 
 	function PoseTool:KeyPose()

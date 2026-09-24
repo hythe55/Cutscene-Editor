@@ -224,9 +224,12 @@ function Shell:_buildSplitter(body)
 	})
 	self.Splitter = handle
 	local dragging = false
-	handle.MouseButton1Down:Connect(function(x)
+	handle.InputBegan:Connect(function(input)
+		if input.UserInputType ~= Enum.UserInputType.MouseButton1 then
+			return
+		end
 		dragging = true
-		local startX = x
+		local startX = input.Position.X
 		local startWidth = self.SideWidthApplied
 		local capture = UI.Create("TextButton", {
 			Name = "SplitterCapture",
@@ -248,7 +251,9 @@ function Shell:_buildSplitter(body)
 			self:Layout()
 		end)
 		capture.MouseButton1Up:Connect(finish)
+		capture.MouseButton1Down:Connect(finish)
 		capture.MouseLeave:Connect(finish)
+		UI.WatchRelease(input, finish)
 	end)
 end
 

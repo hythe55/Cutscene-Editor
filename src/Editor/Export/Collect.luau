@@ -1,3 +1,4 @@
+local SourceLookup = require(script.Parent.Parent.Sources)
 local ServerStorage = game:GetService("ServerStorage")
 
 local Document = require(script.Parent.Parent.Document)
@@ -35,11 +36,7 @@ local function filled(value)
 end
 
 function Collect.Sequence(target)
-	if target:IsA("KeyframeSequence") then
-		return target
-	end
-	local sequence = target:FindFirstChild("Keyframes")
-	return if sequence and sequence:IsA("KeyframeSequence") then sequence else nil
+	return SourceLookup.Sequence(target)
 end
 
 function Collect.Length(sequence)

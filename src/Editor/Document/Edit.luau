@@ -244,6 +244,12 @@ return function(Document)
 				child.Parent = clip
 			end
 		end
+		if kind == "Animation" then
+			local sequence = clip:FindFirstChild("Keyframes")
+			if sequence and sequence:IsA("KeyframeSequence") and self._adopt then
+				self:_adopt(clip, sequence)
+			end
+		end
 		if kind == "Sound" and not clip:FindFirstChildWhichIsA("Sound") then
 			local sound = Instance.new("Sound")
 			sound.Name = "Sound"
@@ -304,6 +310,9 @@ return function(Document)
 				self.Touched[copy] = true
 				copy:SetAttribute("Start", round((clip:GetAttribute("Start") or 0) + span))
 				copy.Parent = clip.Parent
+				if copy:GetAttribute("SourceId") then
+					self:_fork(copy)
+				end
 				table.insert(copies, copy)
 			end
 			return copies
@@ -346,6 +355,9 @@ return function(Document)
 				end
 			end
 			second.Parent = clip.Parent
+			if second:GetAttribute("SourceId") then
+				self:_fork(second)
+			end
 			return second
 		end)
 	end

@@ -1,3 +1,4 @@
+local SourceLookup = require(script.Parent.Sources)
 local UI = require(script.Parent.UI)
 local Layout = require(script.Layout)
 local Context = require(script.Context)
@@ -120,8 +121,8 @@ function Inspector:_signature(kind, target)
 		local track = target.Parent
 		table.insert(parts, idOf(track) .. tostring(track:GetAttribute("Kind")) .. tostring(track:GetAttribute("Locked")))
 		table.insert(parts, childList(target))
-		local sequence = target:FindFirstChild("Keyframes")
-		if sequence and sequence:IsA("KeyframeSequence") then
+		local sequence = SourceLookup.Sequence(target)
+		if sequence and sequence ~= target then
 			table.insert(parts, tostring(#sequence:GetKeyframes()))
 		end
 		if track:GetAttribute("Kind") == "Dialogue" then

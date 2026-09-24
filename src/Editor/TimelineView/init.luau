@@ -2,6 +2,7 @@ local Model = require(script.Model)
 local Ruler = require(script.Ruler)
 local Lanes = require(script.Lanes)
 local Blocks = require(script.Blocks)
+local SubKeys = require(script.SubKeys)
 local Playhead = require(script.Playhead)
 local Snapping = require(script.Snapping)
 local Marquee = require(script.Marquee)
@@ -73,6 +74,7 @@ function TimelineView.new(app, frame)
 	self.Ruler = Ruler.new(self)
 	self.Lanes = Lanes.new(self)
 	self.Blocks = Blocks.new(self)
+	self.SubKeys = SubKeys.new(self)
 	self.Playhead = Playhead.new(self)
 	self.Marquee = Marquee.new(self)
 	self.Hover = Hover.new(self)
@@ -212,6 +214,7 @@ function TimelineView:Flush()
 	end
 	if full or dirty.Selection or dirty.Drag or dirty.Hover then
 		self.Blocks:Render()
+		self.SubKeys:Render()
 		self.Marquee:Render()
 	end
 	if full or dirty.Time or dirty.Drag or dirty.Selection then
@@ -328,7 +331,7 @@ function TimelineView:Destroy()
 		connection:Disconnect()
 	end
 	table.clear(self.Connections)
-	for _, part in { self.Interaction, self.Keyboard, self.Hover, self.Marquee, self.Playhead, self.Blocks, self.Lanes, self.Ruler } do
+	for _, part in { self.Interaction, self.Keyboard, self.Hover, self.Marquee, self.Playhead, self.SubKeys, self.Blocks, self.Lanes, self.Ruler } do
 		pcall(part.Destroy, part)
 	end
 	self.Root:Destroy()

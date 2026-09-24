@@ -74,6 +74,24 @@ return function(App)
 		return self.Collapsed[actor or "Scene"] == true
 	end
 
+	function App:IsExpanded(track, group)
+		local state = self.Expanded and self.Expanded[track]
+		return state ~= nil and state[group or "_"] == true
+	end
+
+	function App:SetExpanded(track, group, expanded)
+		self.Expanded = self.Expanded or setmetatable({}, { __mode = "k" })
+		local state = self.Expanded[track]
+		if not state then
+			state = {}
+			self.Expanded[track] = state
+		end
+		state[group or "_"] = expanded == true
+		self.Rows = nil
+		self:SetView({ ScrollY = self.ScrollY })
+		self.Signals.ViewChanged:Fire(self:GetState())
+	end
+
 	function App:SetCollapsed(actor, collapsed)
 		self.Collapsed[actor or "Scene"] = collapsed == true
 		self.Rows = nil

@@ -1,3 +1,4 @@
+local SourceLookup = require(script.Parent.Parent.Parent.Sources)
 local UI = require(script.Parent.Parent.Parent.UI)
 local Layout = require(script.Parent.Parent.Layout)
 local Fields = require(script.Parent.Parent.Fields)
@@ -12,11 +13,7 @@ local STATUS = {
 }
 
 function Animation.Sequence(target)
-	if target:IsA("KeyframeSequence") then
-		return target
-	end
-	local sequence = target:FindFirstChild("Keyframes")
-	return if sequence and sequence:IsA("KeyframeSequence") then sequence else nil
+	return SourceLookup.Sequence(target)
 end
 
 function Animation.Hash(deps, sequence, hashes)

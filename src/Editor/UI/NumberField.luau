@@ -104,9 +104,9 @@ function NumberField.new(props)
 		self.Hover = false
 		self:_render()
 	end)
-	grab.MouseButton1Down:Connect(function(x, y)
-		if self.Enabled then
-			self:_beginDrag(x, y)
+	grab.InputBegan:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseButton1 and self.Enabled then
+			self:_beginDrag(input.Position.X, input)
 		end
 	end)
 	box.FocusLost:Connect(function()
@@ -164,7 +164,7 @@ function NumberField:_focus()
 	self:_render()
 end
 
-function NumberField:_beginDrag(startX)
+function NumberField:_beginDrag(startX, input)
 	local layer = UI.Layer
 	if not layer then
 		self:_focus()
@@ -215,7 +215,9 @@ function NumberField:_beginDrag(startX)
 		end
 	end)
 	capture.MouseButton1Up:Connect(finish)
+	capture.MouseButton1Down:Connect(finish)
 	capture.MouseLeave:Connect(finish)
+	UI.WatchRelease(input, finish)
 end
 
 function NumberField:_commit(value)

@@ -75,6 +75,11 @@ return function(Interaction)
 		hit.Area = "Lanes"
 		local row, contentY = self:RowAt(y)
 		hit.Row, hit.ContentY = row, contentY
+		if row and (row.Type == "KeyGroup" or row.Type == "KeyJoint") then
+			hit.Track = row.Track
+			hit.SubKey = view.SubKeys:Hit(row, x)
+			return hit
+		end
 		if not row or row.Type ~= "Track" then
 			return hit
 		end

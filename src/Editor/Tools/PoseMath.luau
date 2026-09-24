@@ -9,10 +9,7 @@ local ROTATION_MIN, POSITION_MIN, CONTINUE_COS = math.rad(0.5), 1e-3, 0.3
 
 function PoseMath.Info(document, clip)
 	local props = document:Read(clip, "Animation")
-	local sequence = clip:FindFirstChild("Keyframes")
-	if not (sequence and sequence:IsA("KeyframeSequence")) then
-		sequence = clip:FindFirstChildOfClass("KeyframeSequence")
-	end
+	local sequence = document:GetSequence(clip) or clip:FindFirstChildOfClass("KeyframeSequence")
 	local keyframes = {}
 	if sequence then
 		keyframes = sequence:GetKeyframes()

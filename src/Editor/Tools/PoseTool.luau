@@ -47,6 +47,13 @@ function PoseTool.new(app, frame)
 	self.Mode = "Rotate"
 	self.Step = app:GetSetting("PoseStep", 5)
 	self.RoleScope = "Joint"
+	self.Apply = if app:GetSetting("PoseApply", "Key") == "Range" then "Range" else "Key"
+	local savedRange = app:GetSetting("PoseRange", nil)
+	self.Range = {
+		Before = if type(savedRange) == "table" and type(savedRange.Before) == "number" then savedRange.Before else 0.5,
+		After = if type(savedRange) == "table" and type(savedRange.After) == "number" then savedRange.After else 0.5,
+		Falloff = if type(savedRange) == "table" and type(savedRange.Falloff) == "number" then savedRange.Falloff else 0.3,
+	}
 	self.AutoPick = app:GetSetting("PoseAutoPick", true) ~= false
 	self.Picking = false
 	self.Markers = Markers.new("CutsceneEditorPoseTool", true)

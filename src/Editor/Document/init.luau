@@ -249,6 +249,16 @@ function Document:Touch(instance)
 	if instance then
 		self.Touched[instance] = true
 		self:_mark(instance, false)
+		if (self.Writing or 0) > 0 and self._noteSync and not self.Syncing then
+			local sequence = if instance:IsA("KeyframeSequence") then instance else instance:FindFirstAncestorWhichIsA("KeyframeSequence")
+			if sequence and sequence.Name == "Idle" and sequence.Parent and sequence.Parent:IsA("Configuration") and sequence.Parent.Parent and sequence.Parent.Parent.Name == "Actors" then
+				self:_noteActor(sequence.Parent.Name)
+			elseif sequence then
+				self:_noteSync(self:ClipOfSequence(sequence))
+			elseif instance:IsA("Configuration") and instance.Parent and instance.Parent:GetAttribute("Kind") == "Animation" then
+				self:_noteSync(instance)
+			end
+		end
 	end
 	return instance
 end
@@ -274,6 +284,12 @@ function Document:_record(name, fn, ...)
 	local id = ChangeHistoryService:TryBeginRecording("CutsceneEditor" .. (string.gsub(name, "%W", "")), name)
 	self.Writing = (self.Writing or 0) + 1
 	local results = table.pack(pcall(fn, self, ...))
+	if results[1] and (self.Writing or 0) == 1 then
+		local ok, err = pcall(self._flushSync, self)
+		if not ok then
+			results = table.pack(false, err)
+		end
+	end
 	self.Writing -= 1
 	if id then
 		ChangeHistoryService:FinishRecording(id, if results[1] then Enum.FinishRecordingOperation.Commit else Enum.FinishRecordingOperation.Cancel)

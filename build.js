@@ -19,6 +19,9 @@ const GAME_DIR = "C:\\Users\\caden\\OneDrive\\Desktop\\Schooltime";
 const DEV_MIRROR = path.join(GAME_DIR, "ServerStorage", "CutsceneEditorDev");
 const ROOT_NAME = "CutsceneEditor";
 const MOUNT_NAME = "CutsceneEditorMount";
+const SKILL = path.join(ROOT, "skill", "cutscene-timeline");
+const SKILL_COPY = path.join(ROOT, ".claude", "skills", "cutscene-timeline");
+const USER_SKILL = path.join(process.env.USERPROFILE || require("os").homedir(), ".claude", "skills", "cutscene-timeline");
 
 const SCRIPT_SUFFIXES = [
 	[".server.luau", "Script"],
@@ -343,6 +346,19 @@ function luauFiles(dir, base = dir, list = []) {
 	return list;
 }
 
+function allFiles(dir, base = dir, list = []) {
+	if (!fs.existsSync(dir)) return list;
+	for (const entry of sortedEntries(dir)) {
+		const full = path.join(dir, entry.name);
+		if (entry.isDirectory()) {
+			allFiles(full, base, list);
+		} else if (entry.isFile()) {
+			list.push(path.relative(base, full));
+		}
+	}
+	return list;
+}
+
 function removeEmptyDirs(dir, keep) {
 	for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
 		if (entry.isDirectory()) {
@@ -360,18 +376,18 @@ function sameFile(a, b) {
 	return fs.existsSync(b) && fs.readFileSync(a).equals(fs.readFileSync(b));
 }
 
-function mirror(source, target, label) {
+function mirror(source, target, label, lister = luauFiles) {
 	requireDir(source, label);
 	const resolvedSource = path.resolve(source);
 	const resolvedTarget = path.resolve(target);
 	if (resolvedTarget === resolvedSource || resolvedTarget.startsWith(resolvedSource + path.sep) || resolvedSource.startsWith(resolvedTarget + path.sep)) {
 		fail(`refusing to mirror ${label} into an overlapping folder: ${target}`);
 	}
-	const wanted = luauFiles(source);
+	const wanted = lister(source);
 	const stats = { created: 0, updated: 0, unchanged: 0, removed: 0 };
 	fs.mkdirSync(target, { recursive: true });
 	const wantedSet = new Set(wanted.map((file) => file.toLowerCase()));
-	for (const existing of luauFiles(target)) {
+	for (const existing of lister(target)) {
 		if (!wantedSet.has(existing.toLowerCase())) {
 			fs.unlinkSync(path.join(target, existing));
 			stats.removed += 1;
@@ -403,6 +419,11 @@ function mirror(source, target, label) {
 			(pruned ? `, ${pruned} empty folders removed` : "")
 	);
 	return stats;
+}
+
+function syncSkill(target) {
+	if (!fs.existsSync(SKILL)) return null;
+	return mirror(SKILL, target, "skill/cutscene-timeline", allFiles);
 }
 
 function looksLikeTimeline(dir) {
@@ -503,6 +524,7 @@ function usage() {
 			"node build.js --dev-mirror          mirror Editor and Runtime into Schooltime/ServerStorage/CutsceneEditorDev",
 			"node build.js --dev-mirror-clean    remove that mirror",
 			"node build.js --test-snippet        write dist/mount-snippet.luau for execute_luau",
+			"node build.js --install-skill       copy skill/cutscene-timeline into ~/.claude/skills (every build copies it into .claude/skills here)",
 		].join("\n")
 	);
 }
@@ -524,8 +546,11 @@ function main(argv) {
 		devMirrorClean();
 	} else if (has("--test-snippet")) {
 		testSnippet();
+	} else if (has("--install-skill")) {
+		syncSkill(value("--install-skill") && !value("--install-skill").startsWith("--") ? value("--install-skill") : USER_SKILL);
 	} else {
 		const { xml } = build();
+		syncSkill(SKILL_COPY);
 		if (has("--install")) {
 			install(xml, value("--plugins-dir") || PLUGINS_DIR);
 		}

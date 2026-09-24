@@ -7,6 +7,7 @@ StandIns.SeatHeight = 2.25
 StandIns.CenterOffset = 0.27
 StandIns.RootAboveSeat = 1.5
 StandIns.DefaultCount = 4
+StandIns.Cache = {}
 
 local SHIRTS = {
 	Color3.fromRGB(70, 130, 220),
@@ -173,6 +174,19 @@ function StandIns.Needed(document)
 	return false
 end
 
+local STRIP = { WrapTarget = true, WrapLayer = true, WrapDeformer = true, BaseScript = true, FaceControls = true }
+
+local function strip(model)
+	for _, descendant in model:GetDescendants() do
+		for className in STRIP do
+			if descendant:IsA(className) then
+				descendant:Destroy()
+				break
+			end
+		end
+	end
+end
+
 local function convertJoints(model)
 	local motors = {}
 	for _, descendant in model:GetDescendants() do
@@ -198,14 +212,11 @@ local function convertJoints(model)
 	return motors
 end
 
-local function pose(model, motors, root, rootCFrame, seated)
-	if seated then
-		for _, motor in motors do
-			local rotation = SEATED[motor.Name]
-			if rotation then
-				motor.C0 = motor.C0 * rotation
-			end
-		end
+local function pose(model, motors, root, rootCFrame, seated, baseC0)
+	for _, motor in motors do
+		local base = baseC0[motor] or motor.C0
+		local rotation = if seated then SEATED[motor.Name] else nil
+		motor.C0 = if rotation then base * rotation else base
 	end
 	root.CFrame = rootCFrame
 	local placed = { [root] = true }
@@ -232,7 +243,7 @@ local function pose(model, motors, root, rootCFrame, seated)
 	end
 end
 
-function StandIns.Create(index, rootCFrame, seated)
+local function build(index)
 	local description = Instance.new("HumanoidDescription")
 	local skin = SKINS[(index - 1) % #SKINS + 1]
 	description.HeadColor = skin
@@ -250,13 +261,46 @@ function StandIns.Create(index, rootCFrame, seated)
 		humanoid.HealthDisplayType = Enum.HumanoidHealthDisplayType.AlwaysOff
 		humanoid.DisplayName = " "
 	end
+	strip(model)
 	local motors = convertJoints(model)
+	local baseC0 = {}
+	for _, motor in motors do
+		baseC0[motor] = motor.C0
+	end
 	local root = model:FindFirstChild("HumanoidRootPart")
 	model.PrimaryPart = root
-	if root then
-		pose(model, motors, root, rootCFrame, seated)
+	return { Model = model, Motors = motors, Root = root, BaseC0 = baseC0 }
+end
+
+function StandIns.Create(index, rootCFrame, seated)
+	local entry = StandIns.Cache[index]
+	if not entry or not entry.Model or not pcall(function()
+		entry.Model.Parent = nil
+	end) then
+		entry = build(index)
+		StandIns.Cache[index] = entry
 	end
-	return model
+	if entry.Root then
+		pose(entry.Model, entry.Motors, entry.Root, rootCFrame, seated, entry.BaseC0)
+	end
+	return entry.Model
+end
+
+function StandIns.Release()
+	for _, entry in StandIns.Cache do
+		if entry.Model then
+			entry.Model.Parent = nil
+		end
+	end
+end
+
+function StandIns.Clear()
+	for index, entry in StandIns.Cache do
+		if entry.Model then
+			pcall(game.Destroy, entry.Model)
+		end
+		StandIns.Cache[index] = nil
+	end
 end
 
 function StandIns.Build(document, count, parent)

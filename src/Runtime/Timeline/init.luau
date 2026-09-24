@@ -21,6 +21,7 @@ Timeline.GetLength = Data.Length
 Timeline.GetServerEvents = Data.ServerEvents
 Timeline.ComputeHash = Sampler.Hash
 Timeline.Bake = Sampler.Bake
+Timeline.Sources = require(script.Sources)
 
 Timeline._process = Phases.Process
 Timeline._exitAll = Phases.ExitAll

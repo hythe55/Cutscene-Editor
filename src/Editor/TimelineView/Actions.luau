@@ -26,7 +26,22 @@ local function call(tool, methods, ...)
 	return false
 end
 
+function Actions.DeleteSubKey(view)
+	local app = view.App
+	local subKey = app.Selection.SubKey
+	if not (subKey and app.Document) then
+		return false
+	end
+	if app.Document:DeletePoses(subKey.Clip, subKey.Joints, subKey.Source) then
+		app:SelectSubKey(nil)
+	end
+	return true
+end
+
 function Actions.Delete(view, clips)
+	if clips == nil and view.App.Selection.SubKey then
+		return Actions.DeleteSubKey(view)
+	end
 	local app = view.App
 	clips = clips or selected(view)
 	if #clips == 0 or not app.Document then

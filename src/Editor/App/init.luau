@@ -4,6 +4,7 @@ local Signal = require(Editor.Signal)
 local Theme = require(Editor.Theme)
 local UI = require(Editor.UI)
 local Document = require(Editor.Document)
+local JointGroups = require(Editor.JointGroups)
 local Preview = require(Editor.Preview)
 local Shell = require(script.Shell)
 local Features = require(script.Features)
@@ -15,6 +16,7 @@ App.__index = App
 
 App.RowHeight = 30
 App.GroupHeight = 26
+App.SubRowHeight = 22
 App.RulerHeight = 28
 App.ToolbarHeight = 40
 App.StatusHeight = 24
@@ -118,6 +120,7 @@ function App:OpenCutscene(folder)
 	self.DocumentConnections = {}
 	self.Selection = emptySelection()
 	self.Collapsed = {}
+	self.Expanded = setmetatable({}, { __mode = "k" })
 	self.Rows = nil
 	self.Time = 0
 	self.ScrollTime = 0
@@ -175,6 +178,7 @@ function App:_documentChanged(changes)
 		return
 	end
 	self.Rows = nil
+	JointGroups.Invalidate()
 	self:_pruneSelection()
 	self.Preview:DocumentChanged(changes)
 	self.Signals.DocumentChanged:Fire(document, changes)

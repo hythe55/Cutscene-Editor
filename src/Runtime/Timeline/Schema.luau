@@ -101,6 +101,8 @@ Schema.Kinds = {
 			field("ClipOffset", "number", 0, "Clip offset (s)", { Min = 0, Step = 0.05 }),
 			field("AnimationId", "string", "", "Animation id"),
 			field("ExportedHash", "string", "", "Exported hash", { ReadOnly = true }),
+			field("ContentHash", "string", "", "Content hash", { ReadOnly = true }),
+			field("SourceId", "string", "", "Source id", { ReadOnly = true }),
 		},
 	},
 	Move = {

@@ -66,6 +66,7 @@ return function(App)
 			selection.Clips = {}
 			selection.Primary = nil
 			selection.Key = nil
+			selection.SubKey = nil
 			if kind == "Track" then
 				selection.Track = target
 				selection.Actor = self.Document:GetActor(target:GetAttribute("Actor"))
@@ -87,6 +88,7 @@ return function(App)
 				end
 			end
 		end
+		selection.SubKey = nil
 		if mode == "Replace" then
 			selection.Clips = {}
 			selection.Primary = nil
@@ -118,8 +120,22 @@ return function(App)
 		return selection
 	end
 
+	function App:SelectSubKey(subKey)
+		local selection = self.Selection
+		if subKey then
+			selection.Clips = { [subKey.Clip] = true }
+			selection.Primary = subKey.Clip
+			selection.Key = nil
+			self:_setContext(subKey.Clip)
+		end
+		selection.SubKey = subKey
+		self.Signals.SelectionChanged:Fire(selection)
+		return selection
+	end
+
 	function App:SelectKey(key)
 		local selection = self.Selection
+		selection.SubKey = nil
 		if key == nil then
 			selection.Key = nil
 			self.Signals.SelectionChanged:Fire(selection)

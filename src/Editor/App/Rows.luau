@@ -1,3 +1,5 @@
+local JointGroups = require(script.Parent.Parent.JointGroups)
+
 local Rows = {}
 
 function Rows.Build(app)
@@ -21,7 +23,9 @@ function Rows.Build(app)
 		y += app.GroupHeight
 		if not collapsed then
 			for trackIndex, info in lane.Tracks do
-				table.insert(rows, {
+				local expandable = info.Kind == "Animation"
+				local expanded = expandable and app:IsExpanded(info.Track)
+				local trackRow = {
 					Type = "Track",
 					Actor = lane.Actor,
 					Lane = lane,
@@ -29,10 +33,53 @@ function Rows.Build(app)
 					Kind = info.Kind,
 					Info = info,
 					Index = trackIndex,
+					Expandable = expandable,
+					Expanded = expanded,
 					Y = y,
 					Height = app.RowHeight,
-				})
+				}
+				table.insert(rows, trackRow)
 				y += app.RowHeight
+				if expanded then
+					local ok, groups = pcall(JointGroups.ForTrack, document, info)
+					for _, group in if ok then groups else {} do
+						local groupExpanded = app:IsExpanded(info.Track, group.Name)
+						table.insert(rows, {
+							Type = "KeyGroup",
+							Actor = lane.Actor,
+							Lane = lane,
+							Track = info.Track,
+							Kind = info.Kind,
+							Info = info,
+							Parent = trackRow,
+							Group = group.Name,
+							Joints = group.Joints,
+							Expanded = groupExpanded,
+							Y = y,
+							Height = app.SubRowHeight,
+						})
+						y += app.SubRowHeight
+						if groupExpanded then
+							for _, joint in group.Joints do
+								table.insert(rows, {
+									Type = "KeyJoint",
+									Actor = lane.Actor,
+									Lane = lane,
+									Track = info.Track,
+									Kind = info.Kind,
+									Info = info,
+									Parent = trackRow,
+									Group = group.Name,
+									Joint = joint,
+									Joints = { joint },
+									Y = y,
+									Height = app.SubRowHeight,
+								})
+								y += app.SubRowHeight
+							end
+						end
+					end
+				end
 			end
 		end
 	end
@@ -52,7 +99,7 @@ end
 function Rows.ForTrack(app, track)
 	local rows = app:GetRows()
 	for _, row in rows do
-		if row.Track == track then
+		if row.Track == track and row.Type == "Track" then
 			return row
 		end
 	end

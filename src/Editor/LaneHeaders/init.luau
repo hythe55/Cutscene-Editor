@@ -1,4 +1,5 @@
 local UI = require(script.Parent.UI)
+local JointGroups = require(script.Parent.JointGroups)
 
 local LaneHeaders = {}
 LaneHeaders.__index = LaneHeaders
@@ -12,9 +13,11 @@ local function signature(app, rows)
 		if row.Type == "Group" then
 			local actor = row.Actor
 			table.insert(parts, "G" .. (if actor then actor.Name .. tostring(actor:GetAttribute("DisplayName")) .. tostring(actor:GetAttribute("Source")) else "") .. tostring(row.Collapsed))
+		elseif row.Type == "KeyGroup" or row.Type == "KeyJoint" then
+			table.insert(parts, table.concat({ row.Type, tostring(row.Group), tostring(row.Joint), tostring(row.Expanded), tostring(#row.Joints) }, ":"))
 		else
 			local info = row.Info
-			table.insert(parts, table.concat({ "T", info.Name, tostring(info.Kind), tostring(info.Muted), tostring(info.Locked), tostring(#info.Clips) }, ":"))
+			table.insert(parts, table.concat({ "T", info.Name, tostring(info.Kind), tostring(info.Muted), tostring(info.Locked), tostring(#info.Clips), tostring(row.Expanded) }, ":"))
 		end
 	end
 	return table.concat(parts, "|")
@@ -118,7 +121,14 @@ function LaneHeaders:Rebuild(force)
 	table.clear(self.RowFrames)
 	self.Content.Size = UDim2.new(1, 0, 0, total)
 	for index, row in rows do
-		local entry = if row.Type == "Group" then self:_group(row) else self:_track(row, index)
+		local entry
+		if row.Type == "Group" then
+			entry = self:_group(row)
+		elseif row.Type == "KeyGroup" or row.Type == "KeyJoint" then
+			entry = self:_sub(row)
+		else
+			entry = self:_track(row, index)
+		end
 		entry.Row = row
 		table.insert(self.RowFrames, entry)
 	end
@@ -135,6 +145,9 @@ function LaneHeaders:_highlight()
 		local selected
 		if row.Type == "Track" then
 			selected = selection.Track == row.Track
+		elseif row.Type == "KeyGroup" or row.Type == "KeyJoint" then
+			local sub = selection.SubKey
+			selected = sub ~= nil and sub.Track == row.Track and sub.Group == row.Group and sub.Joint == row.Joint
 		else
 			selected = row.Actor ~= nil and selection.Actor == row.Actor and selection.Track == nil and next(selection.Clips) == nil
 		end
@@ -243,6 +256,15 @@ function LaneHeaders:_track(row, index)
 	local track = row.Track
 	local frame = rowButton(self, row, "Track")
 	UI.Divider({ Parent = frame, AnchorPoint = Vector2.new(0, 1), Position = UDim2.fromScale(0, 1), BackgroundColor3 = UI.Color("Divider", "Panel", 0.4) })
+	if row.Expandable then
+		local chevron = UI.Create("Frame", {
+			Parent = frame,
+			AnchorPoint = Vector2.new(0, 0.5),
+			Position = UDim2.new(0, 0, 0.5, 0),
+			Size = UDim2.fromOffset(14, 14),
+		})
+		UI.Icons.Draw(if row.Expanded then "ChevronDown" else "ChevronRight", chevron, "Dim", 14)
+	end
 	local accent = UI.Create("Frame", {
 		Parent = frame,
 		BackgroundColor3 = UI.Kind(info.Kind),
@@ -335,8 +357,11 @@ function LaneHeaders:_track(row, index)
 			entry.Render()
 		end)
 	end
-	frame.Activated:Connect(function(_, clicks)
-		if clicks == 2 then
+	frame.Activated:Connect(function(input, clicks)
+		local position = input and input.Position
+		if row.Expandable and position and position.X - frame.AbsolutePosition.X < 14 then
+			app:SetExpanded(track, nil, not row.Expanded)
+		elseif clicks == 2 then
 			self:Rename(track, name)
 		else
 			app:Select(track)
@@ -358,6 +383,71 @@ function LaneHeaders:_track(row, index)
 	end)
 	entry.Index = index
 	entry.NameLabel = name
+	return entry
+end
+
+function LaneHeaders:_sub(row)
+	local app = self.App
+	local isGroup = row.Type == "KeyGroup"
+	local indent = if isGroup then 18 else 34
+	local frame = rowButton(self, row, row.Type)
+	UI.Divider({ Parent = frame, AnchorPoint = Vector2.new(0, 1), Position = UDim2.fromScale(0, 1), BackgroundColor3 = UI.Color("Divider", "Panel", 0.6) })
+	if isGroup then
+		local chevron = UI.Create("Frame", {
+			Parent = frame,
+			AnchorPoint = Vector2.new(0, 0.5),
+			Position = UDim2.new(0, indent - 14, 0.5, 0),
+			Size = UDim2.fromOffset(12, 12),
+		})
+		UI.Icons.Draw(if row.Expanded then "ChevronDown" else "ChevronRight", chevron, "Dim", 12)
+	end
+	local label = UI.Create("TextLabel", {
+		Parent = frame,
+		Text = if isGroup then row.Group else JointGroups.Leaf(row.Joint),
+		Font = if isGroup then "Medium" else "Regular",
+		TextSize = if isGroup then 12 else 11,
+		TextColor3 = if isGroup then "Text" else "SubText",
+		TextXAlignment = Enum.TextXAlignment.Left,
+		TextTruncate = Enum.TextTruncate.AtEnd,
+		Position = UDim2.fromOffset(indent, 0),
+		Size = UDim2.new(1, -(indent + 44), 1, 0),
+		Tooltip = if isGroup then `{#row.Joints} joints: click the arrow to list them` else row.Joint,
+	})
+	local count = UI.Create("TextLabel", {
+		Parent = frame,
+		Text = if isGroup then tostring(#row.Joints) else "",
+		TextSize = 10,
+		TextColor3 = "Dim",
+		TextXAlignment = Enum.TextXAlignment.Right,
+		AnchorPoint = Vector2.new(1, 0),
+		Position = UDim2.new(1, -8, 0, 0),
+		Size = UDim2.new(0, 36, 1, 0),
+	})
+	local entry = { Frame = frame }
+	local hover = false
+	function entry.Render()
+		UI.Set(frame, "BackgroundColor3", if entry.Selected then "Selection" elseif hover then UI.Color("Panel", "Text", 0.04) else UI.Color("Panel", "GroupRow", 0.35))
+	end
+	frame.MouseEnter:Connect(function()
+		hover = true
+		entry.Render()
+	end)
+	frame.MouseLeave:Connect(function()
+		hover = false
+		entry.Render()
+	end)
+	frame.Activated:Connect(function()
+		if isGroup then
+			app:SetExpanded(row.Track, row.Group, not row.Expanded)
+		else
+			local tool = app.Tools and app.Tools.PoseTool
+			if tool and type(tool.SelectJoint) == "function" then
+				pcall(tool.SelectJoint, tool, row.Joint)
+			end
+		end
+	end)
+	entry.Label = label
+	entry.Count = count
 	return entry
 end
 

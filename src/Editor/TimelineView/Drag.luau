@@ -300,6 +300,65 @@ function Drag.Key(interaction, hit, position)
 	return drag
 end
 
+function Drag.SubKey(interaction, hit, position)
+	local view = interaction.View
+	local app = view.App
+	local mark = hit.SubKey
+	local row = hit.Row
+	local item = mark.Item
+	local subKey = { Clip = item.Clip, Source = mark.Source, Track = row.Track, Group = row.Group, Joint = row.Joint, Joints = row.Joints }
+	local last = interaction.LastSubKey
+	local now = os.clock()
+	local double = last ~= nil and last.Clip == item.Clip and math.abs(last.Source - mark.Source) < 1e-4 and last.Row == row and now - last.Time <= 0.4
+	interaction.LastSubKey = if double then nil else { Clip = item.Clip, Source = mark.Source, Row = row, Time = now }
+	app:SelectSubKey(subKey)
+	app:SetTime(mark.T)
+	local tool = app.Tools and app.Tools.PoseTool
+	if double then
+		app:ShowTab("Pose")
+	end
+	if tool and type(tool.SelectJoint) == "function" then
+		task.defer(function()
+			pcall(tool.SelectJoint, tool, row.Joint or row.Joints[1])
+		end)
+	end
+	view.Snapping:Collect(nil)
+	local drag = { Kind = "SubKey", Button = 1, Started = false }
+	function drag.Move(self, pos, keys)
+		if not self.Started then
+			if pending(position, pos) or item.Locked then
+				return
+			end
+			self.Started = true
+		end
+		local start, duration, speed = view:Timing(item)
+		local snapped, line = view.Snapping:Time(localTime(view, pos), keys)
+		snapped = math.clamp(snapped, start, start + duration)
+		self.Source = math.max(round(mark.Source + (snapped - mark.T) * speed), 0)
+		self.T = snapped
+		view.SubKeyDrag = { Row = row, Item = item, Source = mark.Source, T = snapped }
+		view.SnapTime = line
+		view:Invalidate("Drag")
+	end
+	function drag.Finish(self)
+		view.SubKeyDrag = nil
+		if not self.Started or not self.Source or math.abs(self.Source - mark.Source) < EPSILON then
+			view:Invalidate("Drag")
+			return
+		end
+		if app.Document:MovePoses(item.Clip, row.Joints, mark.Source, self.Source) then
+			subKey.Source = self.Source
+			app:SelectSubKey(subKey)
+			app:SetTime(self.T)
+		end
+		view:Invalidate("Drag")
+	end
+	function drag.Cancel()
+		view.SubKeyDrag = nil
+	end
+	return drag
+end
+
 function Drag.Marquee(interaction, hit, position, mods)
 	local view = interaction.View
 	local app = view.App

@@ -112,6 +112,35 @@ function PosePanel.new(tool, parent)
 	}, tool.RoleScope, function(scope)
 		tool:SetRoleScope(scope)
 	end, { LayoutOrder = 1 })
+	local applyRow = Widgets.Row(page, 11)
+	UI.Label({ Parent = applyRow, LayoutOrder = 0, Text = "Edit", TextSize = 12, TextColor3 = "Dim", Size = UDim2.fromOffset(24, Widgets.Height) })
+	self.ApplyControl = Widgets.Segmented(applyRow, {
+		{ Value = "Key", Text = "This key", Tooltip = "Rings, arrows and nudges change only the key at the playhead" },
+		{ Value = "Range", Text = "Range", Tooltip = "The same correction also goes onto this joint's keys around the playhead, fading out over the soft edge" },
+	}, tool.Apply, function(mode)
+		tool:SetApply(mode)
+	end, { LayoutOrder = 1 })
+	local rangeRow = Widgets.Row(page, 12)
+	self.RangeRow = rangeRow
+	self.RangeFields = {}
+	for index, entry in { { "Before", "Before" }, { "After", "After" }, { "Falloff", "Soft" } } do
+		self.RangeFields[entry[1]] = UI.NumberField({
+			Parent = rangeRow,
+			LayoutOrder = index,
+			Label = entry[2],
+			LabelWidth = 38,
+			Value = tool.Range[entry[1]],
+			Min = 0,
+			Max = 30,
+			Step = 0.05,
+			Suffix = "s",
+			Size = UDim2.new(1 / 3, -4, 0, Widgets.Height),
+			Tooltip = if entry[1] == "Falloff" then "Seconds over which the correction fades to nothing outside the range" else `Seconds {string.lower(entry[1])} the playhead that get the full correction`,
+			OnCommit = function(value)
+				tool:SetRange(entry[1], value)
+			end,
+		})
+	end
 	return self
 end
 
@@ -147,6 +176,13 @@ function PosePanel:Refresh()
 	self.KeyButton:SetEnabled(tool.ClipTime ~= nil)
 	self.RoleControl:Set(tool:CurrentRole())
 	self.ScopeControl:Set(tool.RoleScope)
+	self.ApplyControl:Set(tool.Apply)
+	self.RangeRow.Visible = tool.Apply == "Range"
+	for field, control in self.RangeFields do
+		if not control.Focused and not control.Dragging then
+			control:Set(tool.Range[field])
+		end
+	end
 end
 
 function PosePanel:Destroy()

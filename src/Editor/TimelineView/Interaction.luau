@@ -47,7 +47,7 @@ function Interaction.new(view)
 	on(hit.InputBegan, function(input)
 		local button = BUTTONS[input.UserInputType]
 		if button then
-			self:PointerDown(point(input), button, self:Modifiers(input))
+			self:PointerDown(point(input), button, self:Modifiers(input), input)
 		end
 	end)
 	on(hit.InputChanged, function(input)
@@ -113,6 +113,12 @@ function Interaction:_capture()
 			self:PointerUp(point(input), button, self:Modifiers(input))
 		end
 	end)
+	capture.InputBegan:Connect(function(input)
+		local drag = self.Drag
+		if drag and BUTTONS[input.UserInputType] then
+			self:PointerUp(self.LastPosition, drag.Button, self.LastMods)
+		end
+	end)
 	capture.MouseLeave:Connect(function()
 		local drag = self.Drag
 		if drag then
@@ -128,6 +134,23 @@ function Interaction:_release()
 		self.Capture:Destroy()
 		self.Capture = nil
 	end
+	if self.InputWatch then
+		self.InputWatch:Disconnect()
+		self.InputWatch = nil
+	end
+end
+
+function Interaction:_watch(input, drag)
+	if not input then
+		return
+	end
+	self.InputWatch = input:GetPropertyChangedSignal("UserInputState"):Connect(function()
+		if input.UserInputState == Enum.UserInputState.End or input.UserInputState == Enum.UserInputState.Cancel then
+			if self.Drag == drag then
+				self:PointerUp(self.LastPosition, drag.Button, self.LastMods)
+			end
+		end
+	end)
 end
 
 function Interaction:_begin(drag)
@@ -137,9 +160,11 @@ function Interaction:_begin(drag)
 	self.Drag = drag
 	self.View.Hover:HideTip()
 	self:_capture()
+	self:_watch(self.PressInput, drag)
 end
 
-function Interaction:PointerDown(position, button, mods)
+function Interaction:PointerDown(position, button, mods, input)
+	self.PressInput = input
 	mods = mods or {}
 	local view = self.View
 	local app = self.App
@@ -162,6 +187,11 @@ function Interaction:PointerDown(position, button, mods)
 		return ContextMenu.Show(view, hit, position)
 	end
 	if button ~= 1 then
+		return
+	end
+	if hit.SubKey then
+		return self:_begin(Drag.SubKey(self, hit, position))
+	elseif hit.Row and (hit.Row.Type == "KeyGroup" or hit.Row.Type == "KeyJoint") then
 		return
 	end
 	local now = os.clock()

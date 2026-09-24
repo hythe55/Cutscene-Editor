@@ -108,7 +108,7 @@ function Lanes:Render()
 		local y = row.Y - app.ScrollY
 		if row.Type == "Group" then
 			parity = 0
-		else
+		elseif row.Type == "Track" then
 			parity += 1
 		end
 		if y + row.Height >= 0 and y <= height then
@@ -124,6 +124,8 @@ function Lanes:Render()
 				if row.Collapsed then
 					summaries = self:_summaries(row, y, summaries)
 				end
+			elseif row.Type ~= "Track" then
+				color = (if parity % 2 == 0 then colors.LaneAlt else colors.Lane):Lerp(colors.Group, if row.Type == "KeyGroup" then 0.35 else 0.18)
 			elseif selection.Track == row.Track then
 				color = colors.TrackSelected
 			else

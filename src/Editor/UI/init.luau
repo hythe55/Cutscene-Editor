@@ -248,4 +248,19 @@ setmetatable(UI, {
 	end,
 })
 
+function UI.WatchRelease(input, fn)
+	if typeof(input) ~= "Instance" or not input:IsA("InputObject") then
+		return nil
+	end
+	local connection
+	connection = input:GetPropertyChangedSignal("UserInputState"):Connect(function()
+		local state = input.UserInputState
+		if state == Enum.UserInputState.End or state == Enum.UserInputState.Cancel then
+			connection:Disconnect()
+			fn()
+		end
+	end)
+	return connection
+end
+
 return UI

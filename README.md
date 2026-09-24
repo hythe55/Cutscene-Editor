@@ -1,6 +1,6 @@
 # CutsceneEditor
 
-A Studio plugin for block-timeline cutscenes, plus the runtime that plays them in game and in the plugin preview. This repo is local git only. Never add a remote.
+A Studio plugin for block-timeline cutscenes, plus the runtime that plays them in game and in the plugin preview. The remote is `github.com/hythe55/Cutscene-Editor`, branch `main`.
 
 ## Using the editor
 
@@ -20,6 +20,7 @@ A Studio plugin for block-timeline cutscenes, plus the runtime that plays them i
 
 - Each track is a 30 px lane under its actor's header. Collapse an actor with its header arrow. Each lane header has Mute (skip the track in previews and in game) and Lock (refuse edits) buttons, and its menus add tracks and actors, rename and delete.
 - Click a block to select it. Shift adds, Ctrl toggles, and dragging on empty space draws a selection box.
+- Drags are press-and-hold: press on a block, key or the playhead, move, and let go. A press that does not move is a click. Esc cancels a drag in progress.
 - Drag a block to move it. Drag it up or down to move it to another track of the same kind.
 - Drag a block's edge to retime it. Animation, Camera and Move clips change Speed; hold Shift to trim instead (Animation trims move ClipOffset, Sound trims move StartOffset). On looped animations it is the other way round: an edge drag adds or removes cycles and Shift changes Speed.
 - Drag the small handle at the top corners of a selected block to change FadeIn or FadeOut. Drag a key diamond to move that key.
@@ -28,7 +29,10 @@ A Studio plugin for block-timeline cutscenes, plus the runtime that plays them i
 - Right-click a block for add, delete, duplicate, split at playhead, rename, set camera key from view, and select in Explorer.
 - Double-click an Animation block to open the **Pose** tab, or a Camera or Move block to open the **Keys** tab.
 - Keys: Space plays or pauses, Delete deletes, Ctrl+D duplicates, S splits at the playhead, Ctrl+A selects all, Home and End jump, Left and Right step one frame (Shift: one second), F frames the selection, Esc cancels a drag or clears the selection, and C toggles the camera lock. Shortcuts are ignored while you type in a text box.
-- Every edit is one undo step, so Ctrl+Z and Ctrl+Y work. Locked tracks refuse edits.
+- Every action is one undo step, so Ctrl+Z undoes the last move, retime, key drag, pose change or range edit, and Ctrl+Y redoes it. Moving the playhead and scrolling are not undo steps. Locked tracks refuse edits.
+- Animation track headers have an arrow that expands the track into body-part groups (Body, Head, Left Arm, Left Hand, Right Arm, Right Hand, legs, Cloth, Other), and each group expands into its joints. Their rows show that group's or joint's keys as diamonds.
+  - Click a diamond to select it, move the playhead there and pick that joint in the Pose tab. Double-click opens the Pose tab.
+  - Drag a diamond to move only those joints' keys in time. Delete removes them.
 - A dialogue line shorter than its reading time gets a red stripe and a "!" badge. Hover it to see the time it needs.
 
 ### Inspector and Script panel
@@ -69,7 +73,9 @@ A Studio plugin for block-timeline cutscenes, plus the runtime that plays them i
 5. **Key pose at playhead** adds a keyframe holding the current pose. **Copy pose** and **Paste pose** move a whole pose, **Reset joint** returns a joint to rest, and **Delete keyframe** removes one.
 6. Key roles control smooth playback: **Pass** keys let the motion flow through, **Stop** keys ease to rest, and **Snap** keeps a deliberate In, Out or Constant snap. **Auto** picks roles from the motion. The role applies to this joint or the whole keyframe.
 
-Every change is one undo step and the preview re-samples right away.
+7. **Edit: This key / Range** decides where a correction goes. With **Range**, the same change also goes onto this joint's keys from **Before** seconds before the playhead to **After** seconds after it, then fades out over **Soft** seconds. Use it to fix a joint across a whole move in one go.
+
+Every change is one undo step, including a range edit, and the preview re-samples right away.
 
 ### Dialogue providers
 
@@ -91,6 +97,12 @@ Every change is one undo step and the preview re-samples right away.
 5. A summary lists what was uploaded, skipped, failed or not reached, and which actors still play from keyframes. An actor uses uploaded animations only when all its clips and its Idle are exported and unchanged.
 
 You can also type an id into an Animation clip and press **Mark as exported**.
+
+### Where keyframes live
+
+- Keyframes are kept in `ServerStorage.CutsceneSources.<Cutscene>`, so clients do not download them once they are exported. Each Animation clip stores `SourceId` and `ContentHash`.
+- A clip also keeps a `Keyframes` copy for clients while its actor still plays from keyframes in game. The copies go away only when every Animation clip of that actor and its Idle are exported and unchanged. They come back as soon as one of them changes, because one changed clip makes the whole actor play from keyframes again.
+- The editor creates and updates all of this itself. Older cutscenes with keyframes stored in the clip move over the first time you edit a clip.
 
 ## Layout
 
@@ -129,6 +141,7 @@ Sources are read as UTF-8, and CRLF or lone CR line endings become LF, as Studio
 | `node build.js --sync-runtime <dir>` | Mirrors `src/Runtime/Timeline` into a game's Timeline folder. |
 | `node build.js --dev-mirror` | Mirrors `src/Editor` and `src/Runtime/Timeline` into `Schooltime\ServerStorage\CutsceneEditorDev\Editor` and `...\CutsceneEditorDev\Runtime\Timeline`. |
 | `node build.js --dev-mirror-clean` | Deletes every `.luau` file under `CutsceneEditorDev`, then the empty folders. |
+| `node build.js --install-skill [dir]` | Copies `skill/cutscene-timeline` into `~/.claude/skills/cutscene-timeline` (or `dir`), so Claude Code uses it in every project. Every normal build also mirrors it into `.claude/skills/cutscene-timeline` in this repo. |
 | `node build.js --test-snippet` | Writes `dist/mount-snippet.luau`, a chunk that rebuilds the model under an `Archivable=false` `ServerStorage.CutsceneEditorMount` and returns it. Each source is a Luau long string whose level is raised until nothing inside, including a trailing `]` or `]=`, can close it early. Destroy the folder afterwards. |
 
 ## Changing the runtime
@@ -143,7 +156,13 @@ Sources are read as UTF-8, and CRLF or lone CR line endings become LF, as Studio
 - Editor writes are ChangeHistory recordings, and a recording cannot start while any `execute_luau` call is running, including one that is only waiting in `task.wait`. Run writes and undos in a `task.delay` thread and poll for the result with calls that return at once. Every `execute_luau` call also clears Studio's redo list.
 - The MCP Luau VM caches requires across calls and agents. Its cached `ReplicatedStorage.Classes.DialogueBox` and `ReplicatedStorage.Settings.DialogueSettings` are stale stage-1 builds. The old DialogueBox throws when `.new` gets an options table, and the old settings still have `DisplayOrder = 10`. Require clones, and copy fresh settings values into the cached table when a test needs them.
 
-## Runtime contract (0.4.1)
+## Skill
+
+`skill/cutscene-timeline` is a Claude Code skill: the data format, the runtime API, export, dialogue providers, animation authoring, and the Studio and MCP edge cases found while building a full cutscene with it, plus helper scripts. The raw notes it was distilled from stay local (`skill/notes/` is ignored).
+
+## Runtime contract (0.5.0)
+
+- **Keyframe sources.** `Timeline.Sources` finds a clip's keyframes: `ServerStorage.CutsceneSources` by `SourceId` first, then the clip's `Keyframes` replica. An actor uses uploaded animations only when every Animation clip and its Idle have `AnimationId` and `ExportedHash == ContentHash`. An exported clip with no keyframes on the client plays through the Animator even when the rest of its actor plays from keyframes.
 
 - **Smooth keys.** A KeyframeSequence with the attribute `Interpolation = "Smooth"` is sampled with velocity-continuous curves: Linear keys pass through, CubicV2 InOut keys and holds stop, and In, Out, Constant, Elastic and Bounce keys keep their native easing. Without the attribute, sampling matches the engine exactly. `Timeline.Bake(sequence, 30)` returns dense Linear keys that reproduce the curve, and export uploads that bake. `Timeline.ComputeHash` includes the attribute.
 

@@ -12,6 +12,7 @@ Preview.__index = Preview
 
 Preview.Provider = Provider
 Preview.StandIns = StandIns
+Preview.RestartGap = 0.3
 
 local COMMIT = Enum.FinishRecordingOperation.Commit
 local CANCEL = Enum.FinishRecordingOperation.Cancel
@@ -117,6 +118,7 @@ function Preview:_closeSession()
 		return
 	end
 	pcall(session.Lock.Destroy, session.Lock)
+	pcall(StandIns.Release)
 	pcall(game.Destroy, session.GuiFolder)
 	pcall(game.Destroy, session.Container)
 end
@@ -244,6 +246,13 @@ function Preview:Start(t)
 		app:Notify("Preview works in edit mode only", "Warn")
 		return false
 	end
+	local sinceStop = os.clock() - (self.LastStop or 0)
+	if sinceStop < Preview.RestartGap then
+		task.wait(Preview.RestartGap - sinceStop)
+		if self.Active or not app.Document then
+			return self.Active
+		end
+	end
 	local ok, err = pcall(self._openSession, self)
 	if not ok then
 		self:_closeSession()
@@ -332,6 +341,7 @@ function Preview:Stop()
 	self:_finish()
 	self.Active = false
 	self.LastGap = false
+	self.LastStop = os.clock()
 	self:_changed()
 end
 
@@ -346,6 +356,7 @@ end
 
 function Preview:Destroy()
 	self:Stop()
+	StandIns.Clear()
 end
 
 for _, name in { "Options", "Edits" } do
