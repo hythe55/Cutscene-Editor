@@ -1,5 +1,6 @@
 local RunService = game:GetService("RunService")
 
+local Actors = require(script.Parent.Actors)
 local Phases = require(script.Parent.Phases)
 
 local Clock = {}
@@ -78,6 +79,9 @@ function Clock.Connect(timeline)
 		RunService:BindToRenderStep(timeline.BindName, Enum.RenderPriority.Camera.Value, function()
 			tick(timeline, render, Clock.Elapsed(timeline))
 		end)
+		RunService:BindToRenderStep(timeline.BindName .. "Players", Enum.RenderPriority.Camera.Value + 1, function()
+			Actors.ShowPlayers(timeline)
+		end)
 		timeline.Bound = true
 	else
 		connections.Step = RunService.PreSimulation:Connect(function()
@@ -96,6 +100,7 @@ function Clock.Disconnect(timeline)
 	if timeline.Bound then
 		timeline.Bound = false
 		RunService:UnbindFromRenderStep(timeline.BindName)
+		RunService:UnbindFromRenderStep(timeline.BindName .. "Players")
 	end
 end
 

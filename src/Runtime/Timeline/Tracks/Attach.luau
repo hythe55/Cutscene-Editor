@@ -36,11 +36,25 @@ local function goal(state, ctx)
 	return cframe and cframe * props.Offset
 end
 
+local LIVE_WINDOW = 0.25
+
+local function canProbe(ctx, actorId)
+	local animation = ctx.Timeline.Modules.Animation
+	return not (animation and animation.CanProbe) or animation.CanProbe(ctx, actorId)
+end
+
 local function exitPivot(state, ctx)
 	if state.ExitPivot == nil then
 		local props = state.Props
-		local cframe = ctx:ProbeJointCFrame(props.Target, props.TargetJoint, state.End)
-		state.ExitPivot = if cframe then cframe * props.Offset else false
+		local live = state.LivePivot ~= nil and state.End - state.LiveTime <= LIVE_WINDOW
+		local cframe
+		if (live and not ctx.Preview) or not canProbe(ctx, props.Target) then
+			cframe = state.LivePivot
+		else
+			local joint = ctx:ProbeJointCFrame(props.Target, props.TargetJoint, state.End)
+			cframe = joint and joint * props.Offset
+		end
+		state.ExitPivot = cframe or false
 	end
 	return state.ExitPivot or nil
 end
@@ -66,6 +80,8 @@ function Attach.Frame(ctx)
 						local blendIn = state.Props.BlendIn
 						local blend = if blendIn > 0 then smooth(math.clamp((t - state.Start) / blendIn, 0, 1)) else 1
 						pivot = from:Lerp(target, blend)
+						state.LivePivot = pivot
+						state.LiveTime = t
 					end
 					hidden = false
 				elseif moveStart and moveStart >= state.End then

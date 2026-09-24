@@ -91,15 +91,61 @@ local function loadTrack(ctx, actorId, id, looped, priority)
 	return track
 end
 
+local function inGame(ctx)
+	return not ctx.Preview and RunService:IsRunning()
+end
+
+local function clipWantsAnimator(ctx, state)
+	return (state.Exported and not state.Sampler and inGame(ctx)) or Animation.UsesAnimator(ctx, state.Actor)
+end
+
+local function idleWantsAnimator(ctx, actor, actorId)
+	local idle = actor and actor.IdleSequence
+	if not idle then
+		return false
+	end
+	return (not actor.Idle and inGame(ctx) and Sources.IsExported(idle)) or Animation.UsesAnimator(ctx, actorId)
+end
+
+function Animation.CanProbe(ctx, actorId)
+	for _, state in clips(ctx, actorId) do
+		if not state.Sampler then
+			return false
+		end
+	end
+	return true
+end
+
+function Animation.Warm(ctx)
+	local assets = {}
+	for actorId, list in ctx:Registry("Animation") do
+		for _, state in list do
+			if not state.Track and clipWantsAnimator(ctx, state) then
+				state.Track = loadTrack(ctx, actorId, state.Props.AnimationId, state.Props.Loop)
+			end
+			if state.Track then
+				table.insert(assets, state.Track.Animation)
+			end
+		end
+		local actor = ctx:GetActor(actorId)
+		if actor and not actor.IdleTrack and idleWantsAnimator(ctx, actor, actorId) then
+			actor.IdleTrack = loadTrack(ctx, actorId, actor.IdleSequence:GetAttribute("AnimationId"), true, Enum.AnimationPriority.Idle)
+		end
+		if actor and actor.IdleTrack then
+			table.insert(assets, actor.IdleTrack.Animation)
+		end
+	end
+	return assets
+end
+
 function Animation.Frame(ctx)
 	for actorId in ctx:Registry("Animation") do
 		local actor = ctx:GetActor(actorId)
-		local idle = actor and actor.IdleSequence
-		local fallback = idle and not actor.Idle and not ctx.Preview and RunService:IsRunning() and Sources.IsExported(idle)
-		if idle and not actor.IdleTrack and (fallback or Animation.UsesAnimator(ctx, actorId)) then
-			actor.IdleTrack = loadTrack(ctx, actorId, idle:GetAttribute("AnimationId"), true, Enum.AnimationPriority.Idle)
+		if actor and not actor.IdlePlaying and idleWantsAnimator(ctx, actor, actorId) then
+			actor.IdleTrack = actor.IdleTrack or loadTrack(ctx, actorId, actor.IdleSequence:GetAttribute("AnimationId"), true, Enum.AnimationPriority.Idle)
 			if actor.IdleTrack then
 				actor.IdleTrack:Play(0, 1, 1)
+				actor.IdlePlaying = true
 			end
 		end
 	end
@@ -128,8 +174,7 @@ function Animation.Prepare(clip, props, track, ctx)
 end
 
 function Animation.Enter(state, ctx)
-	local fallback = state.Exported and not state.Sampler and not ctx.Preview and RunService:IsRunning()
-	if fallback or Animation.UsesAnimator(ctx, state.Actor) then
+	if clipWantsAnimator(ctx, state) then
 		state.Track = state.Track or loadTrack(ctx, state.Actor, state.Props.AnimationId, state.Props.Loop)
 		if state.Track then
 			state.Track:Play(0, 0.0001, state.Props.Speed)
@@ -141,10 +186,14 @@ function Animation.Update(state, localTime, alpha, ctx)
 	local props = state.Props
 	local weight = fadeWeight(props, alpha * props.Duration)
 	local time = sampleTime(state, localTime)
-	if state.Track then
-		state.Track:AdjustWeight(math.max(weight, 0.0001), 0)
-		if math.abs(state.Track.TimePosition - time) > 0.15 then
-			state.Track.TimePosition = time
+	local track = state.Track
+	if track then
+		track:AdjustWeight(math.max(weight, 0.0001), 0)
+		if track.Length <= 0 then
+			state.Synced = false
+		elseif not state.Synced or math.abs(track.TimePosition - time) > 0.1 then
+			state.Synced = true
+			track.TimePosition = time
 		end
 		return
 	end

@@ -181,6 +181,9 @@ function Sound.Prepare(clip, props, _track, ctx)
 		Template = clip:FindFirstChildWhichIsA("Sound"),
 		Anchor = named(props.Anchor),
 	}
+	if ctx and state.Template then
+		table.insert(ctx:Registry("SoundTemplates"), state.Template)
+	end
 	if ctx then
 		ctx:OnCleanup(function()
 			cleanup(state)
@@ -189,8 +192,13 @@ function Sound.Prepare(clip, props, _track, ctx)
 	return state
 end
 
+function Sound.Warm(ctx)
+	return table.clone(ctx:Registry("SoundTemplates"))
+end
+
 function Sound.Enter(state, ctx)
 	cleanup(state)
+	state.Synced = false
 	if not state.Template then
 		return
 	end
@@ -217,6 +225,7 @@ function Sound.Update(state, localTime, alpha, ctx)
 	media.Volume = template.Volume * envelope(state.Props, alpha)
 	local length = media.TimeLength
 	if ctx.Seeking or length <= 0 then
+		state.Synced = false
 		return
 	end
 	local expected = (state.Props.StartOffset or 0) + localTime * template.PlaybackSpeed
@@ -225,7 +234,8 @@ function Sound.Update(state, localTime, alpha, ctx)
 	elseif expected >= length then
 		return
 	end
-	if math.abs(media.TimePosition - expected) > RESYNC then
+	if not state.Synced or math.abs(media.TimePosition - expected) > RESYNC then
+		state.Synced = true
 		media.TimePosition = expected
 	end
 end

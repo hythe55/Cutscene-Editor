@@ -301,13 +301,40 @@ function Actors.SetTransparency(actor, amount)
 				list = visuals(model)
 				actor.Visuals[model] = list
 			end
+			local player = actor.Kind == "Player" or actor.Kind == "Group"
 			for _, instance in list do
 				local original = actor.Transparency[instance]
 				if original == nil then
-					original = instance.LocalTransparencyModifier
+					original = if player then 0 else instance.LocalTransparencyModifier
 					actor.Transparency[instance] = original
 				end
 				instance.LocalTransparencyModifier = math.max(original, amount)
+			end
+		end
+	end
+end
+
+function Actors.ShowPlayers(timeline)
+	for _, actor in timeline.Actors do
+		if actor.Kind == "Player" or actor.Kind == "Group" then
+			local amount = actor.AppliedHide or 0
+			actor.Visuals = actor.Visuals or {}
+			for _, model in actor.Models do
+				if model.Parent then
+					local list = actor.Visuals[model]
+					if not list then
+						list = visuals(model)
+						actor.Visuals[model] = list
+					end
+					for _, instance in list do
+						if instance.LocalTransparencyModifier ~= amount and instance.Parent then
+							if actor.Transparency[instance] == nil then
+								actor.Transparency[instance] = 0
+							end
+							instance.LocalTransparencyModifier = amount
+						end
+					end
+				end
 			end
 		end
 	end

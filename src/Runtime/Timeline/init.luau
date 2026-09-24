@@ -1,3 +1,4 @@
+local ContentProvider = game:GetService("ContentProvider")
 local HttpService = game:GetService("HttpService")
 local RunService = game:GetService("RunService")
 
@@ -53,7 +54,33 @@ function Timeline.new(folder, options)
 	local simulation = self.Phases[1]
 	Phases.Process(self, simulation, 0, true)
 	simulation.Inclusive = true
+	self.Loaded = true
+	if not self.Preview and RunService:IsRunning() then
+		self:_warm()
+	end
 	return self
+end
+
+function Timeline:_warm()
+	local assets = {}
+	for _, module in self.Modules do
+		if type(module.Warm) == "function" then
+			local ok, list = pcall(module.Warm, self.Context)
+			if ok and type(list) == "table" then
+				table.move(list, 1, #list, #assets + 1, assets)
+			elseif not ok then
+				warn("Timeline: warming failed: " .. tostring(list))
+			end
+		end
+	end
+	if #assets == 0 then
+		return
+	end
+	self.Loaded = false
+	task.spawn(function()
+		pcall(ContentProvider.PreloadAsync, ContentProvider, assets)
+		self.Loaded = true
+	end)
 end
 
 function Timeline:_complete()

@@ -163,7 +163,11 @@ Sources are read as UTF-8, and CRLF or lone CR line endings become LF, as Studio
 
 `skill/cutscene-timeline` is a Claude Code skill: the data format, the runtime API, export, dialogue providers, animation authoring, and the Studio and MCP edge cases found while building a full cutscene with it, plus helper scripts. The raw notes it was distilled from stay local (`skill/notes/` is ignored).
 
-## Runtime contract (0.5.2)
+## Runtime contract (0.5.3)
+
+- **Prewarm.** In game, `Timeline.new` loads every uploaded animation track and preloads animations and sound templates (`ContentProvider:PreloadAsync`) straight away, and sets `timeline.Loaded` when that finishes. An animation or sound that still loads after its start time jumps to the right position on its first loaded frame.
+- **Player visibility.** While a timeline plays in game, player actors are kept at their cutscene visibility every frame after the camera update. Roblox's first-person camera would otherwise hide the local character.
+- **Props put down from a hand** (Attach with `OnExit = "Stay"`) stay where the hand last held them in game. The pose is only recomputed from keyframes in the preview, because clients do not have the keyframes of uploaded clips.
 
 - **Idle stubs.** When an actor is fully exported, its `Idle` KeyframeSequence has no keyframes. `Timeline.Sources.Keyframes(idle)` returns the ServerStorage source (server and plugin) or nil (client). The runtime then plays the Idle's `AnimationId` through the Animator. `Sources.IsExported(idle)` uses the stored `ContentHash`.
 
