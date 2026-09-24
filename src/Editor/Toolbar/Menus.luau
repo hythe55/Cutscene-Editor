@@ -122,11 +122,11 @@ function Menus.Provider(app, anchor)
 	table.insert(items, { Header = true, Text = "PREVIEW STAND-INS" })
 	for _, count in { 1, 2, 4, 6, 8 } do
 		table.insert(items, {
-			Text = count .. (if count == 1 then " student" else " students"),
-			Checked = app.Preview.StudentCount == count,
+			Text = count .. (if count == 1 then " player" else " players"),
+			Checked = app.Preview.PlayerCount == count,
 			OnClick = function()
-				app.Preview:SetStudentCount(count)
-				app:Notify(`Preview uses {count} stand-in student{if count == 1 then "" else "s"}`, "Info")
+				app.Preview:SetPlayerCount(count)
+				app:Notify(`Preview uses {count} stand-in player{if count == 1 then "" else "s"}`, "Info")
 			end,
 		})
 	end

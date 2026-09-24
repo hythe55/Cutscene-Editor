@@ -57,8 +57,8 @@ Schema.Track = {
 Schema.Actor = {
 	field("Source", "enum", "Tag", "Source", { Options = { "Tag", "Template", "Role", "Group" } }),
 	field("Tag", "string", "", "Tag", { When = { Source = "Tag" } }),
-	field("Role", "string", "", "Role", { When = { Source = "Role" }, Options = { "Student1", "Student2", "Student3", "Student4" } }),
-	field("Group", "enum", "Students", "Group", { When = { Source = "Group" }, Options = { "Students" } }),
+	field("Role", "string", "", "Role", { When = { Source = "Role" }, Options = { "Player1", "Player2", "Player3", "Player4" } }),
+	field("Group", "enum", "Players", "Group", { When = { Source = "Group" }, Options = { "Players" } }),
 	field("Mode", "enum", "Clone", "Mode", { Options = { "Clone", "Original" } }),
 	field("DisplayName", "string", "", "Display name"),
 	field("Portrait", "enum", "Viewport", "Portrait", { Options = { "Viewport", "Headshot", "None" } }),

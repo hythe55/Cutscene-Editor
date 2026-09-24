@@ -102,8 +102,9 @@ local function fillRoles(configs, options)
 	end
 	table.sort(roleIds)
 	local pool = {}
-	if options.Students and #options.Students > 0 then
-		pool = options.Students
+	local listed = options.Players or options.Students
+	if listed and #listed > 0 then
+		pool = listed
 	else
 		local names = {}
 		for name in roles do
@@ -157,7 +158,7 @@ local function playerSources(actor, options, roles)
 			table.insert(found, standIns[roleId] or standIns[actor.Id])
 		end
 	else
-		for _, userId in options.Students or {} do
+		for _, userId in options.Players or options.Students or {} do
 			character(options, userId, found, players)
 		end
 		if #found == 0 and type(standIns[actor.Id]) == "table" then

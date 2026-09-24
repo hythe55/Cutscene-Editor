@@ -7,7 +7,7 @@ local Context = {}
 
 Context.DefaultLibrary = "ServerStorage.CutsceneAssets"
 Context.DefaultMoods = { "Normal", "Shout", "Whisper" }
-Context.DefaultRoles = { "Student1", "Student2", "Student3", "Student4" }
+Context.DefaultRoles = { "Player1", "Player2", "Player3", "Player4" }
 Context.R15 = {
 	"Head", "UpperTorso", "LowerTorso", "HumanoidRootPart",
 	"LeftUpperArm", "LeftLowerArm", "LeftHand", "RightUpperArm", "RightLowerArm", "RightHand",

@@ -304,7 +304,7 @@ function StandIns.Clear()
 end
 
 function StandIns.Build(document, count, parent)
-	local result = { Models = {}, Characters = {}, Roles = {}, Students = {} }
+	local result = { Models = {}, Characters = {}, Roles = {}, Players = {} }
 	if not StandIns.Needed(document) then
 		return result
 	end
@@ -328,16 +328,16 @@ function StandIns.Build(document, count, parent)
 			model.Parent = parent
 			local userId = -index
 			table.insert(result.Models, model)
-			table.insert(result.Students, userId)
+			table.insert(result.Players, userId)
 			result.Characters[userId] = model
 		else
 			warn("CutsceneEditor: stand-in failed: " .. tostring(model))
 		end
 	end
-	local students = result.Students
-	if #students > 0 then
+	local players = result.Players
+	if #players > 0 then
 		for index, role in document:GetRoles() do
-			result.Roles[role] = students[(index - 1) % #students + 1]
+			result.Roles[role] = players[(index - 1) % #players + 1]
 		end
 	end
 	result.Chairs = #chairs

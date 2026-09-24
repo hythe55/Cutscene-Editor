@@ -45,9 +45,10 @@ Talk is not a clip. The runtime moves `TalkJoints` automatically while the actor
 
 ## Roles and groups
 
-- A `Role` actor is one player. The role id is any string (`Hero`, `Buyer2`). The editor's Student1 to Student4 entries are only suggestions.
-- `Timeline.new` fills roles from `options.Roles`, then from `options.Students` in order. With fewer players than roles, players repeat.
-- A `Group` actor (`Students`) is every player in `options.Students`. The name is historical and means "the players taking part" in any game.
+- A `Role` actor is one player. The role id is any string (`Hero`, `Buyer2`). The editor's Player1 to Player4 entries are only suggestions.
+- `Timeline.new` fills roles from `options.Roles`, then from `options.Players` in order. With fewer players than roles, players repeat.
+- A `Group` actor (`Group = "Players"`) is every player in `options.Players`. The runtime does not read the Group value.
+- Runtimes before 0.5.1 called the list `Students` (and data may say `Group = "Students"` or `Student1`). The runtime still accepts `options.Students`, and old ids are just strings, so old cutscenes play unchanged.
 
 ## Joint keys
 

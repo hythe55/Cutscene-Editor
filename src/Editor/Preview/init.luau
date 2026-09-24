@@ -35,7 +35,7 @@ function Preview.new(app)
 	self.Session = nil
 	self.Recording = nil
 	self.CameraLock = app:GetSetting("CameraLock", false) == true
-	self.StudentCount = app:GetSetting("StudentCount", StandIns.DefaultCount)
+	self.PlayerCount = app:GetSetting("PlayerCount", app:GetSetting("StudentCount", StandIns.DefaultCount))
 	self.LastGap = false
 	return self
 end
@@ -102,7 +102,7 @@ function Preview:_openSession()
 		StandInFolder = folder("StandIns", container),
 		GuiFolder = folder("CutsceneEditorPreview", CoreGui),
 	}
-	session.StandIns = StandIns.Build(document, self.StudentCount, session.StandInFolder)
+	session.StandIns = StandIns.Build(document, self.PlayerCount, session.StandInFolder)
 	session.ProviderInfo = Provider.Resolve(document.Folder)
 	session.Lock = CameraLock.new(container, function()
 		self:_userMovedCamera()
@@ -182,7 +182,7 @@ function Preview:_buildTimeline(t)
 		DialogueBox = box,
 		Characters = standIns.Characters,
 		Roles = standIns.Roles,
-		Students = standIns.Students,
+		Players = standIns.Players,
 	})
 	if not ok then
 		self:_destroyBox()

@@ -40,12 +40,12 @@ A Studio plugin for block-timeline cutscenes, plus the runtime that plays them i
 - The **Inspector** tab shows the selected clip, or else the selected track, actor or cutscene. Fields commit on Enter or when they lose focus. Number fields also scrub when you drag them.
 - Sound clips can play their part of the sound and pick a replacement from `ServerStorage.CutsceneAssets.Sounds`. VFX, prop and actor templates can be replaced from the library, selected in the Explorer, or burst in the viewport.
 - Animation clips show their export status, the Animation id, **Mark as exported**, **Smooth keys**, and their keyframe list (click a keyframe to jump there).
-- Dialogue clips have the speaker, the text with token buttons such as `{Student1}`, the mood, the type speed, the provider's extra fields (stored as `X_` attributes) and **Fit to reading time**.
+- Dialogue clips have the speaker, the text with token buttons such as `{Player1}`, the mood, the type speed, the provider's extra fields (stored as `X_` attributes) and **Fit to reading time**.
 - The **Script** tab lists every dialogue line in time order. Edit a line in place, click a row to jump there, click its duration badge to fit it to its reading time, use **Add line** after the selected line, and **Auto-fit** for all lines. The **Ripple** menu chooses whether a longer line pushes later lines on its lane, every later clip, or nothing.
 
 ### Preview
 
-- Press Play or Space, or drag the playhead in the ruler (or anywhere with the middle mouse button). The preview plays the real runtime on copies of the actors, with stand-in students in the first tagged chairs. The provider menu sets how many stand-ins sit down.
+- Press Play or Space, or drag the playhead in the ruler (or anywhere with the middle mouse button). The preview plays the real runtime on copies of the actors, with stand-in players in the first tagged chairs (the cutscene's `ChairTag`), or in a row in front of the scene. The provider menu sets how many stand-ins sit down.
 - Sounds and VFX play only while playing. Scrubbing updates rigs, props, the camera, overlays, post effects and the dialogue box at once.
 - **Stop** removes every preview copy, unhides the originals and puts the camera back.
 - You can edit while the preview is paused; it rebuilds after each edit. Pause before editing while it plays.
@@ -80,7 +80,7 @@ Every change is one undo step, including a range edit, and the preview re-sample
 ### Dialogue providers
 
 - A game draws dialogue its own way through a provider module (SPEC §7a). Register it with attributes on `ReplicatedStorage.Cutscenes`: `DialogueModule` (a module path) and optionally `DialogueGui` (a ScreenGui template path).
-- The provider button on the toolbar shows which provider the preview uses, for example "Game: DialogueBox", "Built-in fallback" or "Dialogue: error" (shorter in a narrow window). Its menu can pick a game module, switch back to the built-in fallback, select the module in the Explorer and set the number of stand-in students. If the game module fails, the preview uses the fallback and the menu shows the real error.
+- The provider button on the toolbar shows which provider the preview uses, for example "Game: DialogueBox", "Built-in fallback" or "Dialogue: error" (shorter in a narrow window). Its menu can pick a game module, switch back to the built-in fallback, select the module in the Explorer and set the number of stand-in players. If the game module fails, the preview uses the fallback and the menu shows the real error.
 
 ### Runtime install
 
@@ -160,7 +160,9 @@ Sources are read as UTF-8, and CRLF or lone CR line endings become LF, as Studio
 
 `skill/cutscene-timeline` is a Claude Code skill: the data format, the runtime API, export, dialogue providers, animation authoring, and the Studio and MCP edge cases found while building a full cutscene with it, plus helper scripts. The raw notes it was distilled from stay local (`skill/notes/` is ignored).
 
-## Runtime contract (0.5.0)
+## Runtime contract (0.5.1)
+
+- **Players.** `Timeline.new` takes `Players = { userId, ... }`, the players taking part in order. It fills Role actors that `Roles` leaves empty, and Group actors use all of them. The old name `Students` still works when `Players` is absent. Role ids are any string. The editor suggests Player1 to Player4, and existing ids such as Student1 keep working. The Group attribute's value is not read, so old `Group = "Students"` actors play unchanged.
 
 - **Keyframe sources.** `Timeline.Sources` finds a clip's keyframes: `ServerStorage.CutsceneSources` by `SourceId` first, then the clip's `Keyframes` replica. An actor uses uploaded animations only when every Animation clip and its Idle have `AnimationId` and `ExportedHash == ContentHash`. An exported clip with no keyframes on the client plays through the Animator even when the rest of its actor plays from keyframes.
 

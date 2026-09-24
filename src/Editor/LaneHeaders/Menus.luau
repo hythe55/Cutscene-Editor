@@ -269,8 +269,8 @@ return function(LaneHeaders)
 				OnClick = function()
 					local choice, role = app:Modal({
 						Title = "Player role",
-						Text = "A role is filled by one of the players (Student1 to Student4 in Chapter 2).",
-						Input = { Value = "Student" .. (#document:GetRoles() + 1) },
+						Text = "A role is filled by one of the players, for example Player1 or Hero.",
+						Input = { Value = "Player" .. (#document:GetRoles() + 1) },
 						Buttons = { "Cancel", "Add" },
 					})
 					if choice == "Add" and role and role ~= "" then
@@ -282,7 +282,7 @@ return function(LaneHeaders)
 				Text = "All players",
 				Hint = "Source Group",
 				OnClick = function()
-					add({ Id = uniqueId(document, "Students"), Source = "Group", Group = "Students", Mode = "Original", Portrait = "None", Anchor = false })
+					add({ Id = uniqueId(document, "Players"), Source = "Group", Group = "Players", Mode = "Original", Portrait = "None", Anchor = false })
 				end,
 			},
 		}

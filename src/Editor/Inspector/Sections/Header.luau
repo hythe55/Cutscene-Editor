@@ -13,7 +13,7 @@ local SOURCE_TEXT = {
 		return "role " .. tostring(actor:GetAttribute("Role") or actor.Name)
 	end,
 	Group = function(actor)
-		return "group " .. tostring(actor:GetAttribute("Group") or "Students")
+		return "group " .. tostring(actor:GetAttribute("Group") or "Players")
 	end,
 	Template = function()
 		return "template"

@@ -233,7 +233,7 @@ function Scene.Cutscene(inspector, folder, order)
 		end)
 	end)
 	for index, entry in CUTSCENE_FIELDS do
-		Fields.Attribute(inspector, body, index + 1, folder, entry, { Clear = true, Placeholder = entry.Placeholder, Tooltip = "Tagged chairs where the preview seats student stand-ins" })
+		Fields.Attribute(inspector, body, index + 1, folder, entry, { Clear = true, Placeholder = entry.Placeholder, Tooltip = "Tagged chairs where the preview seats player stand-ins" })
 	end
 	local registry = Context.Registry()
 	if registry then

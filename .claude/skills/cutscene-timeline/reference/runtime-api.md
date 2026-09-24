@@ -8,8 +8,8 @@ The runtime is a ModuleScript tree named `Timeline`. Games install a copy at the
 local Timeline = require(path.to.Timeline)
 
 local timeline = Timeline.new(folder, {
-	Roles = { Hero = userId, ... },      -- role id (any string) -> userId; unfilled roles take players from Students in order
-	Students = { userId, ... },          -- the players taking part, in order; Group actors use it (the name is historical)
+	Roles = { Hero = userId, ... },      -- role id (any string) -> userId; unfilled roles take players from Players in order
+	Players = { userId, ... },           -- the players taking part, in order; Group actors use it (0.5.1; before that: Students, still accepted)
 	StartAt = serverTime,                -- in game, time = workspace:GetServerTimeNow() - StartAt
 	Preview = false,                     -- true in the plugin (edit mode)
 	DialogueBox = box,                   -- wins over the registered provider

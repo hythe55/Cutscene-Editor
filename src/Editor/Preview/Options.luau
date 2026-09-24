@@ -35,10 +35,10 @@ return function(Preview)
 		return session ~= nil and self.Timeline ~= nil and session.Lock:InGap()
 	end
 
-	function Preview:SetStudentCount(count)
+	function Preview:SetPlayerCount(count)
 		count = math.clamp(math.floor(tonumber(count) or StandIns.DefaultCount), 1, 16)
-		self.StudentCount = count
-		self.App:SetSetting("StudentCount", count)
+		self.PlayerCount = count
+		self.App:SetSetting("PlayerCount", count)
 		self:Restart()
 		self:_changed()
 	end
