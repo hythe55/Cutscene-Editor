@@ -14,7 +14,7 @@ Run these in a read-only validation script (`scripts/check_template.luau`) and f
 - **Near plane.** Use `GetPartBoundsInRadius(position, 0.5)` plus about 14 short rays, and keep at least 0.4 studs of clearance. Sample every camera clip at 30 fps.
 - **Line of sight** from the camera to the shot's subject, ignoring invisible parts.
 - **Subject in frame.** Project with the shot's FOV at 16:9. Captures from the MCP use the Studio window's aspect, not 16:9.
-- **Every seat.** Test player-anchored shots against every chair a player could sit in.
+- **Every spot.** Test player-anchored shots from every seat or spot a player could be in.
 - **Hidden actors.** Raycast body points from every shot camera through the whole clip. A hidden character showed through a gap under a desk panel from far cameras, and elbows showed from every student-side shot.
 
 ## Composition
@@ -33,8 +33,8 @@ Run these in a read-only validation script (`scripts/check_template.luau`) and f
 
 ## Players in the scene
 
-- **Solo play makes every student role the same player.** Write student lines that still work as one voice, or give extra roles NPC identities. Test with 1, 2 and 4 players.
-- **Random seats.** Fixed per-role eyeline sides can cross the line when seats are random.
-- **Seating.** Unseat on the server. Stand players about 2.6 studs behind the chair with feet on the floor. Hold network ownership briefly, or the client snaps them back onto the chair. Raycast only anchored parts when finding the seat top.
+- **Solo play makes every role the same player.** Write player lines that still work as one voice, or give extra roles NPC identities. Test with 1, 2 and 4 players.
+- **Random placement.** When players land in random spots (seats, spawn points, vehicles), fixed per-role eyeline sides can cross the line. Test player-anchored shots from every spot.
+- **Seating, if players sit.** Unseat on the server. Stand players beside the seat with feet on the floor (2.6 studs behind a chair worked). Hold network ownership briefly, or the client snaps them back onto the seat. Raycast only anchored parts when finding the seat top.
 - **Streaming.** With StreamingEnabled, actors, props, chairs and doors need `ModelStreamingMode = Persistent`. Players who spawn far away or join mid-cutscene may not have them.
 - **Cutscene-only NPCs.** Rigs tagged for the game's NPC systems turn into roaming chasers once startup works. Tag cutscene-only rigs (for example `CutsceneOnly`) and move them out of Workspace at server start.

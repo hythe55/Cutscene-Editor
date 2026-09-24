@@ -33,7 +33,7 @@ ServerStorage.CutsceneSources : Folder
 | Camera | Anchor, AnchorJoint, Interpolation, Shake, ShakeFrequency, LookAtActor, LookAtJoint, LookAtWeight, FocusActor, FocusJoint | `Keys` Folder of CFrameValues. Per key: Time, FOV (70), Easing, EasingDirection. With an Anchor, keys are relative to it |
 | Sound | FadeIn, FadeOut, StartOffset, Anchor, AnchorJoint | one `Sound` template |
 | VFX | Anchor, AnchorJoint, Offset, Mode "Burst"\|"Continuous", EmitScale 1 | one Attachment, BasePart or Model template |
-| Dialogue | Speaker, Text (tokens like `{Student2}`), TypeSpeed (0 = provider default), Blips, Mood, `X_*` provider fields | |
+| Dialogue | Speaker, Text (tokens like `{Hero}` name a role's player), TypeSpeed (0 = provider default), Blips, Mood, `X_*` provider fields | |
 | Overlay | Color, Opacity, FadeIn, FadeOut, Text, SubText, Style "Fade"\|"Title"\|"Clock" | |
 | PostFX | FadeIn, FadeOut, Blur, Saturation, Contrast, Brightness, TintColor | |
 | Property | Target, Path (`/` separated, "" = model), Property, From, To, Easing, EasingDirection | |
@@ -42,6 +42,12 @@ ServerStorage.CutsceneSources : Folder
 | Visibility | FadeIn, FadeOut | |
 
 Talk is not a clip. The runtime moves `TalkJoints` automatically while the actor speaks. Set `TalkJoints = ""` to turn it off, and author mouth motion as an Animation clip on its own track when it must be exact.
+
+## Roles and groups
+
+- A `Role` actor is one player. The role id is any string (`Hero`, `Buyer2`). The editor's Student1 to Student4 entries are only suggestions.
+- `Timeline.new` fills roles from `options.Roles`, then from `options.Students` in order. With fewer players than roles, players repeat.
+- A `Group` actor (`Students`) is every player in `options.Students`. The name is historical and means "the players taking part" in any game.
 
 ## Joint keys
 

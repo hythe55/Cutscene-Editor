@@ -5,7 +5,7 @@
 - Build timelines from one script that copies assets fresh, sets every attribute and resolves tags at build time. Rebuilding then fixes drift instead of adding it.
 - Pair every build script with a read-only check script (`scripts/check_template.luau`) and fail on any miss.
 - Screenshot sparingly. A few shots from the real shot cameras with the dialogue box on beat dozens from free angles.
-- Time dialogue with the provider's `ReadingTime`, then add pace. Kids need readable holds, but a gap longer than about 2 s with no line and no action drags.
+- Time dialogue with the provider's `ReadingTime`, then add pace. Young players need readable holds, but a gap longer than about 2 s with no line and no action drags.
 - When the user says an animation is "choppy", measure speed through the keys first. It is usually stop-and-go easing, not frame rate.
 - Keep scene-specific numbers (pivots, marks, jamb planes) in one notes file next to the build script, and update it when a model is regrouped.
 

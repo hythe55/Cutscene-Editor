@@ -5,7 +5,9 @@ description: Use when a task touches Roblox cutscenes built on the block-timelin
 
 # Cutscene timeline
 
-A cutscene is data: a Folder of actors and tracks of timed clips. One runtime plays it in game and in the editor preview. The Studio plugin (repo `CutsceneEditor`) edits the data, previews it without touching the place, and exports animations. Most time goes into the edge cases below, not the happy path.
+A cutscene is data: a Folder of actors and tracks of timed clips. One runtime plays it in game and in the editor preview. The Studio plugin (repo `github.com/hythe55/Cutscene-Editor`, local folder `CutsceneEditor`) edits the data, previews it without touching the place, and exports animations. Most time goes into the edge cases below, not the happy path.
+
+Nothing here is tied to one game. The examples (a teacher, a flask, a classroom, seated players) come from the first cutscene built with the system. Apply the rule, not the example.
 
 ## Read first, by task
 

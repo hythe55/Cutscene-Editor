@@ -21,7 +21,7 @@
 --
 -- Functions only read instances, except applyPose / resetPose / restore / stepPreview, which write
 -- Bone.Transform (restore also moves parts back; stepPreview cleans up after itself). Those four need the
--- roblox-playtest-queue lease when run through execute_luau. Everything else returns plain tables/CFrames.
+-- shared Studio lease (if agents share Studio) when run through execute_luau. Everything else returns plain tables/CFrames.
 -- Tip: execute_luau keeps _G between calls, so one call can do `_G.RigKit = RigKit` and later calls can reuse
 -- it without re-pasting (clear it with `_G.RigKit = nil` when done).
 
@@ -755,7 +755,7 @@ end
 -- Registers the KeyframeSequence (temporary rbxtemp id), plays it through the rig's Animator with
 -- Animator:StepAnimations, reads every Bone.Transform, then stops/destroys the track, resets the Transforms
 -- it touched and removes any Animator it had to create (imported AnimationControllers often have none).
--- WRITES to the rig while it runs: hold the playtest-queue lease.
+-- WRITES to the rig while it runs: hold the shared Studio lease if agents share Studio.
 function RigKit.stepPreview(model, ks, t)
 	local host = model:FindFirstChildOfClass("Humanoid") or model:FindFirstChildOfClass("AnimationController")
 	assert(host, "RigKit.stepPreview: no Humanoid/AnimationController")

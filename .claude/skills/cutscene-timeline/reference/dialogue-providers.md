@@ -28,7 +28,7 @@ box:VisibleCharacters(line, elapsed)    -- optional; the provider's own typewrit
 line = { Speaker = { Id, Name, UserId?, PortraitModel?, PortraitJoint?, Color? }, Text, TypeSpeed?, Mood?, Blips?, Extra }
 ```
 
-Speaker tokens such as `{Student2}` in Text resolve to the player in that role. A speaker with `UserId` gets a headshot, and an actor gets a ViewportFrame portrait framed on `PortraitJoint`.
+Speaker tokens such as `{Hero}` in Text resolve to the player in that role. A speaker with `UserId` gets a headshot, and an actor gets a ViewportFrame portrait framed on `PortraitJoint`.
 
 ## Edge cases
 
