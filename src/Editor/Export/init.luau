@@ -1,7 +1,7 @@
 local RunService = game:GetService("RunService")
 
 local UI = require(script.Parent.UI)
-local Context = require(script.Parent.Inspector.Context)
+local Document = require(script.Parent.Document)
 local Collect = require(script.Collect)
 local Creator = require(script.Creator)
 local Upload = require(script.Upload)
@@ -151,8 +151,7 @@ function Export.Confirm(app, ask, state)
 			return false
 		end
 		if #state.Items == 0 then
-			app:Notify("Nothing needs uploading", "Info")
-			return false
+			return "Empty"
 		end
 		if state.Creator then
 			return true
@@ -161,22 +160,81 @@ function Export.Confirm(app, ask, state)
 	end
 end
 
-function Export.Store(app, item, id)
-	pausePreview(app)
-	local stored = Context.Write(app, "Link " .. item.Name .. " animation", function(document)
-		for _, target in item.Targets do
-			if target.Parent then
-				document:WriteAttribute(target, "AnimationId", "rbxassetid://" .. id)
-				document:WriteAttribute(target, "ExportedHash", item.Hash)
-			end
+local function cutsceneOf(instance)
+	local current = instance.Parent
+	while current and current ~= game do
+		if current:GetAttribute("Timeline") == true then
+			return current
 		end
-		return true
-	end)
-	return stored == true
+		current = current.Parent
+	end
+	return nil
 end
 
-local function record(app, summary, item, id)
-	if Export.Store(app, item, id) then
+function Export.DocumentFor(app, run, folder)
+	if app.Document and app.Document.Folder == folder then
+		return app.Document
+	end
+	run.Documents = run.Documents or {}
+	local document = run.Documents[folder]
+	if not document then
+		document = Document.new(folder, app.Deps)
+		run.Documents[folder] = document
+	end
+	return document
+end
+
+function Export.Close(run)
+	for _, document in run.Documents or {} do
+		pcall(document.Destroy, document)
+	end
+	run.Documents = nil
+end
+
+function Export.Store(app, run, item, id)
+	pausePreview(app)
+	local byFolder, order = {}, {}
+	for _, target in item.Targets do
+		local folder = target.Parent and cutsceneOf(target)
+		if folder then
+			if not byFolder[folder] then
+				byFolder[folder] = {}
+				table.insert(order, folder)
+			end
+			table.insert(byFolder[folder], target)
+		end
+	end
+	local stored = #order > 0
+	for _, folder in order do
+		local document = Export.DocumentFor(app, run, folder)
+		local ok = document:Batch("Link " .. item.Name .. " animation", function(doc)
+			for _, target in byFolder[folder] do
+				doc:WriteAttribute(target, "AnimationId", "rbxassetid://" .. id)
+				doc:WriteAttribute(target, "ExportedHash", item.Hash)
+			end
+			return true
+		end)
+		stored = stored and ok == true
+	end
+	return stored
+end
+
+function Export.Tidy(app, run, all)
+	local tidied = 0
+	for _, folder in Collect.Folders(app, all) do
+		local document = Export.DocumentFor(app, run, folder)
+		local ok, changed = pcall(document.TidySources, document)
+		if ok and changed then
+			tidied += 1
+		elseif not ok then
+			app:Notify(`Could not tidy {folder.Name}: {changed}`, "Warn")
+		end
+	end
+	return tidied
+end
+
+local function record(app, run, summary, item, id)
+	if Export.Store(app, run, item, id) then
 		table.insert(summary.Uploaded, { Item = item, Id = id })
 	else
 		table.insert(summary.Failed, { Item = item, Id = id, Error = `uploaded as rbxassetid://{id}, but the id could not be saved. Paste it into Animation id and press Mark as exported` })
@@ -218,12 +276,12 @@ local function progressModal(ask, creator, count)
 	return handle
 end
 
-local function byHand(app, ask, hooks, items, from, creator, summary)
+local function byHand(app, ask, hooks, run, items, from, creator, summary)
 	for index = from, #items do
 		local item = items[index]
 		local result = Upload.ByHand(app, ask, hooks, item, creator, `Upload {index}/{#items}: {label(item)}`)
 		if result.Id then
-			record(app, summary, item, result.Id)
+			record(app, run, summary, item, result.Id)
 		elseif result.Skipped then
 			table.insert(summary.Skipped, { Item = item })
 		elseif result.Error then
@@ -237,7 +295,7 @@ local function byHand(app, ask, hooks, items, from, creator, summary)
 	end
 end
 
-function Export.UploadAll(app, ask, hooks, items, creator, summary)
+function Export.UploadAll(app, ask, hooks, run, items, creator, summary)
 	local progress = progressModal(ask, creator, #items)
 	local stopped = function()
 		return progress.Stopped
@@ -252,7 +310,7 @@ function Export.UploadAll(app, ask, hooks, items, creator, summary)
 		progress.Set(`{index}/{#items}  {label(item)}`)
 		local result = Upload.WithRetry(app, hooks, item, creator, stopped)
 		if result.Id then
-			record(app, summary, item, result.Id)
+			record(app, run, summary, item, result.Id)
 			if index < #items then
 				task.wait(Upload.Gap)
 			end
@@ -266,7 +324,7 @@ function Export.UploadAll(app, ask, hooks, items, creator, summary)
 				Width = 460,
 			})
 			if choice == "Upload by hand" then
-				byHand(app, ask, hooks, items, index, creator, summary)
+				byHand(app, ask, hooks, run, items, index, creator, summary)
 			else
 				for rest = index, #items do
 					table.insert(summary.NotReached, { Item = items[rest] })
@@ -345,6 +403,7 @@ function Export.Run(app, options)
 	Export.Running = true
 	pausePreview(app)
 	local summary = { Uploaded = {}, Skipped = {}, Failed = {}, NotReached = {}, Partial = {} }
+	local run = {}
 	local ok, err = pcall(function()
 		local state = { All = options.All == true, Force = options.Force == true, Items = {}, Choice = Creator.Load(app) }
 		if options.Clips then
@@ -357,16 +416,23 @@ function Export.Run(app, options)
 			end
 			state.Items = Collect.Group(state.Items)
 		end
-		if not Export.Confirm(app, ask, state) then
+		local confirmed = Export.Confirm(app, ask, state)
+		if confirmed == "Empty" then
+			local tidied = Export.Tidy(app, run, state.All)
+			app:Notify(if tidied > 0 then `Nothing needs uploading. Moved leftover keyframes into ServerStorage in {plural(tidied, "cutscene")}` else "Nothing needs uploading", "Info")
+			return
+		elseif not confirmed then
 			return
 		end
 		Creator.Save(app, state.Choice)
 		summary.Creator = state.Creator
-		Export.UploadAll(app, ask, hooks, state.Items, state.Creator, summary)
+		Export.UploadAll(app, ask, hooks, run, state.Items, state.Creator, summary)
+		summary.Tidied = Export.Tidy(app, run, state.All)
 		summary.Partial = Collect.Partial(app, state.All)
 		ask({ Title = "Export finished", Text = Export.Summary(summary), Buttons = { "Done" }, Width = 460 })
 	end)
 	Collect.Cleanup()
+	Export.Close(run)
 	Export.Running = false
 	if not ok then
 		app:Notify("Export failed: " .. tostring(err), "Error")
